@@ -6,6 +6,7 @@
 <title>SHADOW GBL — Operator Vault</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 
 /* ============================================================
@@ -16,23 +17,23 @@
 
 :root {
   --b0: #000000;
-  --b1: #040404;
-  --b2: #070707;
-  --b3: #0a0a0a;
-  --b4: #0e0e0e;
-  --b5: #131313;
-  --b6: #181818;
-  --line: #141414;
-  --line2: #1e1e1e;
+  --b1: #030303;
+  --b2: #060606;
+  --b3: #080808;
+  --b4: #0c0c0c;
+  --b5: #101010;
+  --b6: #151515;
+  --line: #111111;
+  --line2: #191919;
   --w:  #ffffff;
-  --w2: #8a8a8a;
-  --w3: #4a4a4a;
-  --w4: #2a2a2a;
+  --w2: #7a7a7a;
+  --w3: #3f3f3f;
+  --w4: #222222;
   --gr: #00ff88;
-  --gr2: rgba(0,255,136,0.1);
-  --gr3: rgba(0,255,136,0.05);
-  --gr4: rgba(0,255,136,0.2);
-  --gr5: rgba(0,255,136,0.3);
+  --gr2: rgba(0,255,136,0.08);
+  --gr3: rgba(0,255,136,0.04);
+  --gr4: rgba(0,255,136,0.18);
+  --gr5: rgba(0,255,136,0.28);
   --rd: #ff3355;
   --SY: 'Syne', sans-serif;
   --DM: 'DM Sans', sans-serif;
@@ -643,58 +644,91 @@ body.has-announce .filter-bar { top: 94px; }
 <div class="toasts" id="toasts"></div>
 
 <script>
-const STORE_KEY = 'shadowgbl_v1';
+const SUPABASE_URL = 'https://quhmpjmrhnlkeyhjgpnx.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1aG1wam1yaG5sa2V5aGpncG54Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MDQzNDUsImV4cCI6MjA5NzI4MDM0NX0.Ygh2iyKPDGIVnT-o85VL1Eh2bnmjfYPYVAFv_aR6XDA';
 const DEFAULT_PWD = 'ShadowCapo99';
 
 const DEFAULT_PRODUCTS = [
-  { id:1, name:"OFM Operator's Bible", category:'OFM Systems', price:'29.99', desc:'The complete playbook for running a profitable OFM management operation. SOPs, client acquisition scripts, chatter management systems and scaling frameworks. Everything built from real operations and tested in the field.', tags:['SOPs','Scripts','Scaling','Client Acquisition'], includes:['Full operations playbook','Client acquisition scripts','Chatter management SOPs','Scaling frameworks to £10k/mo'], badge:'Bestseller', stripeLink:'', imageUrl:'', active:true },
-  { id:2, name:'AI Content Generation Mastery', category:'AI Systems', price:'19.99', desc:'The exact AI workflow used to generate 30 days of content in under 2 hours. Claude prompts, Midjourney frameworks, automation stacks and platform-specific strategies. No theory — the actual system.', tags:['AI Prompts','Content','Automation','Claude'], includes:['30-day content system','Claude prompt library','Midjourney frameworks','Automation stack guide'], badge:'', stripeLink:'', imageUrl:'', active:true },
-  { id:3, name:'Chat Script Bible', category:'Conversion', price:'14.99', desc:'High-converting chat scripts for OFM, sales DMs, lead nurturing and client onboarding. Every script tested across hundreds of real conversations. Copy, paste, convert.', tags:['DM Scripts','Sales','OFM Chats','Conversion'], includes:['OFM chat scripts','Sales DM frameworks','Lead nurture sequences','Onboarding scripts'], badge:'', stripeLink:'', imageUrl:'', active:true },
-  { id:4, name:'Shadow Operator Prompt Pack', category:'AI Tools', price:'12.99', desc:'The complete collection of operator-grade AI prompts. Content generation, business planning, sales copy, research systems and automation prompts. 50+ prompts across 8 categories.', tags:['Prompts','50+ Prompts','8 Categories'], includes:['50+ tested prompts','8 prompt categories','Content & sales prompts','Business planning prompts'], badge:'New', stripeLink:'', imageUrl:'', active:true }
+  { id:1, name:"OFM Operator's Bible", category:'OFM Systems', price:'29.99', desc:'The complete playbook for running a profitable OFM management operation. SOPs, client acquisition scripts, chatter management systems and scaling frameworks. Everything built from real operations and tested in the field.', tags:['SOPs','Scripts','Scaling','Client Acquisition'], includes:['Full operations playbook','Client acquisition scripts','Chatter management SOPs','Scaling frameworks to £10k/mo'], badge:'Bestseller', stripeLink:'', imageUrl:'', deliveryLink:'', origPrice:'', sold:'', active:true },
+  { id:2, name:'AI Content Generation Mastery', category:'AI Systems', price:'19.99', desc:'The exact AI workflow used to generate 30 days of content in under 2 hours. Claude prompts, Midjourney frameworks, automation stacks and platform-specific strategies. No theory — the actual system.', tags:['AI Prompts','Content','Automation','Claude'], includes:['30-day content system','Claude prompt library','Midjourney frameworks','Automation stack guide'], badge:'', stripeLink:'', imageUrl:'', deliveryLink:'', origPrice:'', sold:'', active:true },
+  { id:3, name:'Chat Script Bible', category:'Conversion', price:'14.99', desc:'High-converting chat scripts for OFM, sales DMs, lead nurturing and client onboarding. Every script tested across hundreds of real conversations. Copy, paste, convert.', tags:['DM Scripts','Sales','OFM Chats','Conversion'], includes:['OFM chat scripts','Sales DM frameworks','Lead nurture sequences','Onboarding scripts'], badge:'', stripeLink:'', imageUrl:'', deliveryLink:'', origPrice:'', sold:'', active:true },
+  { id:4, name:'Shadow Operator Prompt Pack', category:'AI Tools', price:'12.99', desc:'The complete collection of operator-grade AI prompts. Content generation, business planning, sales copy, research systems and automation prompts. 50+ prompts across 8 categories.', tags:['Prompts','50+ Prompts','8 Categories'], includes:['50+ tested prompts','8 prompt categories','Content & sales prompts','Business planning prompts'], badge:'New', stripeLink:'', imageUrl:'', deliveryLink:'', origPrice:'', sold:'', active:true }
 ];
 
 const DEFAULT_CONTENT = {
-  logo: 'SHADOW <span>GBL</span>',
-  pill: 'The Vault',
-  eyebrow: 'Operator Resources',
-  title: 'Systems built\nto win.',
-  sub: 'Digital playbooks, AI systems and operator frameworks. No theory. Only what works.',
-  announce: '',
-  allLabel: 'All',
+  logo: 'SHADOW <span>GBL</span>', pill: 'The Vault', eyebrow: 'Operator Resources',
+  title: 'Systems built\nto win.', sub: 'Digital playbooks, AI systems and operator frameworks. No theory. Only what works.',
+  announce: '', allLabel: 'All',
   strip: ['Instant Delivery','Secure Checkout','Operator Tested','Lifetime Access','No Subscriptions'],
-  flogo: 'SHADOW <span>GBL</span>',
-  fcopy: '© 2025 Shadow Global · TCF Firm Ltd',
-  confh: 'Purchase Complete',
-  confp: 'Payment confirmed. Your product is on its way. Check your email for delivery — if you do not see it within a few minutes check spam.',
+  flogo: 'SHADOW <span>GBL</span>', fcopy: '© 2025 Shadow Global · TCF Firm Ltd',
+  confh: 'Purchase Complete', confp: 'Payment confirmed. Your product is on its way. Check your email for delivery — if you do not see it within a few minutes check spam.',
   confsteps: ['Check your email for the delivery message from Shadow Global.','Follow the access link or download inside.','Questions? Contact moshadow154@gmail.com']
 };
 
-let store = loadStore();
+let store = {
+  products: DEFAULT_PRODUCTS.map(p=>({...p})),
+  settings: { email:'moshadow154@gmail.com', w3key:'eae37de4-23b9-4cf1-9653-e48ecff4fc27' },
+  content: {...DEFAULT_CONTENT},
+  stats: { sales:0, earned:0, members:0 },
+  pwd: DEFAULT_PWD
+};
 let adminAuthed = false;
 let currentFilter = 'All';
 let currentDetailId = null;
 
-function loadStore() {
+// ── SUPABASE CLIENT (safe init) ──
+let _sb = null;
+function initSupabase() {
   try {
-    const s = localStorage.getItem(STORE_KEY);
-    if (s) {
-      const parsed = JSON.parse(s);
-      if (!parsed.stats) parsed.stats = { sales:0, earned:0, members:0 };
-      if (!parsed.products) parsed.products = DEFAULT_PRODUCTS.map(p=>({...p}));
-      if (!parsed.content) parsed.content = {...DEFAULT_CONTENT};
-      else parsed.content = {...DEFAULT_CONTENT, ...parsed.content};
-      return parsed;
+    if (window.supabase && window.supabase.createClient) {
+      _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      return true;
     }
-  } catch(e) {}
-  return {
-    products: DEFAULT_PRODUCTS.map(p=>({...p})),
-    settings: { email:'moshadow154@gmail.com', w3key:'eae37de4-23b9-4cf1-9653-e48ecff4fc27' },
-    content: {...DEFAULT_CONTENT},
-    stats: { sales:0, earned:0, members:0 },
-    pwd: DEFAULT_PWD
-  };
+  } catch(e) { console.warn('Supabase init failed', e); }
+  return false;
 }
-function saveStore() { localStorage.setItem(STORE_KEY, JSON.stringify(store)); }
+
+async function loadStore() {
+  if (!_sb && !initSupabase()) {
+    renderContent(); renderFilters(); renderVault();
+    return;
+  }
+  try {
+    const { data, error } = await _sb
+      .from('shadowgbl_store')
+      .select('data')
+      .eq('id', 'store')
+      .single();
+    if (!error && data && data.data && Object.keys(data.data).length > 0) {
+      const d = data.data;
+      store.products = (d.products || DEFAULT_PRODUCTS).map(p => ({ ...(DEFAULT_PRODUCTS.find(x=>x.id===p.id) || {}), ...p }));
+      store.settings = { ...store.settings, ...(d.settings || {}) };
+      store.content  = { ...DEFAULT_CONTENT, ...(d.content || {}) };
+      store.stats    = { sales:0, earned:0, members:0, ...(d.stats || {}) };
+      store.pwd      = d.pwd || DEFAULT_PWD;
+    }
+  } catch(e) {
+    console.warn('Could not load from Supabase, using defaults', e);
+  }
+  renderContent(); renderFilters(); renderVault();
+}
+
+let saveTimeout = null;
+async function saveStore() {
+  if (!_sb && !initSupabase()) { toast('Connecting... try again in a second'); return; }
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    try {
+      const { error } = await _sb
+        .from('shadowgbl_store')
+        .upsert({ id: 'store', data: store, updated_at: new Date().toISOString() });
+      if (error) throw error;
+    } catch(e) {
+      console.warn('Save failed', e);
+      toast('Save failed — check connection');
+    }
+  }, 400);
+}
 
 // ── RENDER PAGE CONTENT ──
 function renderContent() {
@@ -1192,9 +1226,16 @@ function esc(s) { if(!s) return ''; return String(s).replace(/&/g,'&amp;').repla
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', () => {
+  // Render immediately from defaults so the store is never blank
   renderContent(); renderFilters(); renderVault();
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('success')==='1') { openConfirm(); window.history.replaceState({},'',window.location.pathname); }
+  // Then load real data from Supabase over the top
+  loadStore().then(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === '1') {
+      openConfirm();
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  });
 });
 </script>
 </body>
