@@ -16,7 +16,7 @@ export function routeFromPath(pathname: string): PublicRoute {
   if (/^\/products\/[^/]+$/.test(path)) return 'product';
   return 'not-found';
 }
-a
+
 export function isSystemsProduct(product: Product): boolean {
   return SYSTEM_TYPES.has(String(product.ptype || '').toLowerCase());
 }
