@@ -10,7 +10,7 @@
     { "source": "/wall/", "destination": "/index.html" },
     { "source": "/admin", "destination": "/index.html" },
     { "source": "/admin/", "destination": "/index.html" },
-    { "source": "/products/:path*", "destination": "/index.html" },
+    { "source": "/products/:path*", "destination": "/" },
     { "source": "/checkout/success", "destination": "/index.html" },
     { "source": "/checkout/success/", "destination": "/index.html" }
   ],
