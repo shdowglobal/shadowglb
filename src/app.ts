@@ -74,7 +74,7 @@ function mediaFor(product: Product): MediaItem[] {
 }
 
 function productPath(product: Product): string {
-  return `/products/${encodeURIComponent(String(product.id))}/`;
+  return `/products/${encodeURIComponent(String(product.id))}`;
 }
 
 function normalizeStore(payload: unknown): PublicStore {
