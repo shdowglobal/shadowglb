@@ -3,7 +3,6 @@
   "version": 2,
   "buildCommand": "pnpm build",
   "outputDirectory": "dist",
-  "cleanUrls": true,
   "rewrites": [
     { "source": "/systems", "destination": "/index.html" },
     { "source": "/systems/", "destination": "/index.html" },
