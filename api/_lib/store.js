@@ -223,11 +223,13 @@ function validateAdminStoreInput(value) {
       const id = validateProductId(product.id);
       if (ids.has(id)) throw new HttpError(400, 'Product IDs must be unique.', 'duplicate_product_id');
       ids.add(id);
-      productName(product);
-      parsePriceToMinor(product.price == null || String(product.price).trim() === '' ? '0' : product.price,
-  { allowZero: true }
-);
-      validateCurrency(product.currency || 'gbp');
+      // Inactive products are drafts and can be incomplete.
+if (product.active === false) continue;
+
+productName(product);
+parsePriceToMinor(product.price);
+validateCurrency(product.currency || 'gbp');
+
     }
   }
   return JSON.parse(serialized);
