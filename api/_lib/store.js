@@ -224,7 +224,9 @@ function validateAdminStoreInput(value) {
       if (ids.has(id)) throw new HttpError(400, 'Product IDs must be unique.', 'duplicate_product_id');
       ids.add(id);
       productName(product);
-      parsePriceToMinor(product.price == null ? '0' : product.price, { allowZero: true });
+      parsePriceToMinor(product.price == null || String(product.price).trim() === '' ? '0' : product.price,
+  { allowZero: true }
+);
       validateCurrency(product.currency || 'gbp');
     }
   }
