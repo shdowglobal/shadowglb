@@ -1,4 +1,3 @@
-import { renderAdmin } from './admin.js';
 import type { MediaItem, Product, PublicRoute, PublicStore, WallItem } from './types.js';
 
 const app = typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('#app');
@@ -74,7 +73,7 @@ function mediaFor(product: Product): MediaItem[] {
 }
 
 function productPath(product: Product): string {
-  return `/products/${encodeURIComponent(String(product.id))}`;
+  return `/products/${encodeURIComponent(String(product.id))}/`;
 }
 
 function normalizeStore(payload: unknown): PublicStore {
@@ -109,6 +108,28 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
     throw new Error(message || `Request failed (${response.status})`);
   }
   return data;
+}
+
+const STORE_CACHE_KEY = 'shadowglb_public_store_v3';
+
+function readStoreCache(): { payload: unknown; fingerprint: string } | null {
+  try {
+    const raw = window.localStorage.getItem(STORE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { payload?: unknown; fingerprint?: unknown };
+    if (!parsed || typeof parsed.fingerprint !== 'string' || parsed.payload === undefined) return null;
+    return { payload: parsed.payload, fingerprint: parsed.fingerprint };
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeStoreCache(payload: unknown, fingerprint: string): void {
+  try {
+    window.localStorage.setItem(STORE_CACHE_KEY, JSON.stringify({ payload, fingerprint, savedAt: Date.now() }));
+  } catch (_error) {
+    // Storage may be full or blocked; the store still works from the network.
+  }
 }
 
 function activeClass(target: PublicRoute, current: PublicRoute): string {
@@ -420,6 +441,7 @@ function renderProduct(store: PublicStore): void {
   const position = collection.findIndex((item) => String(item.id) === String(product.id));
   const original = Number.parseFloat(product.origPrice || '');
   const current = Number.parseFloat(product.price || '0');
+  const isFree = !(current > 0);
   const content = `<article class="product-page">
     <div class="product-route-bar"><a href="${isSystemsProduct(product) ? '/systems/' : '/'}">← Back to ${isSystemsProduct(product) ? 'Systems' : 'Store'}</a><span>${position + 1} / ${collection.length}</span></div>
     <div class="product-layout" data-product-swipe>
@@ -437,7 +459,7 @@ function renderProduct(store: PublicStore): void {
         ${collection.length > 1 ? '<p class="swipe-hint">Swipe this panel to move between products.</p>' : ''}
       </section>
     </div>
-    <div class="buy-bar"><div><strong>${formatMoney(product.price)}</strong>${Number.isFinite(original) && original > current ? `<del>${formatMoney(original)}</del>` : ''}<small>One-time payment</small></div>${product.checkoutReady ? `<button class="button button-primary buy-button" type="button" data-product-id="${escapeHtml(product.id)}">Buy securely <span>→</span></button>` : '<div class="product-unavailable" role="status"><b>Currently unavailable</b><span>Checkout will open when delivery is configured.</span></div>'}</div>
+    <div class="buy-bar"><div><strong>${isFree ? 'FREE' : formatMoney(product.price)}</strong>${!isFree && Number.isFinite(original) && original > current ? `<del>${formatMoney(original)}</del>` : ''}<small>${isFree ? 'Instant access' : 'One-time payment'}</small></div>${product.checkoutReady ? `<button class="button button-primary buy-button" type="button" data-product-id="${escapeHtml(product.id)}"${isFree ? ' data-free="1"' : ''}>${isFree ? 'Get free access' : 'Buy securely'} <span>→</span></button>` : '<div class="product-unavailable" role="status"><b>Currently unavailable</b><span>Checkout will open when delivery is configured.</span></div>'}</div>
     <div class="checkout-error" role="alert" hidden></div>
   </article>`;
   app.innerHTML = chrome('product', content, store);
@@ -450,23 +472,32 @@ function renderProduct(store: PublicStore): void {
   }, { passive: true });
   dots.forEach((dot, index) => dot.addEventListener('click', () => carousel?.scrollTo({ left: index * carousel.clientWidth, behavior: 'smooth' })));
   const buy = document.querySelector<HTMLButtonElement>('.buy-button');
+  const isFreeClaim = buy?.dataset.free === '1';
   buy?.addEventListener('click', async () => {
     const errorBox = document.querySelector<HTMLElement>('.checkout-error');
     buy.disabled = true;
-    buy.innerHTML = 'Opening secure checkout…';
+    buy.innerHTML = isFreeClaim ? 'Unlocking…' : 'Opening secure checkout…';
     if (errorBox) errorBox.hidden = true;
     try {
+      if (isFreeClaim) {
+        const result = await requestJson<{ deliveryUrl: string }>('/api/claim-free', { method: 'POST', body: JSON.stringify({ productId: product.id }) });
+        if (!result.deliveryUrl) throw new Error('This product could not be unlocked right now.');
+        window.open(result.deliveryUrl, '_blank', 'noopener');
+        buy.disabled = false;
+        buy.innerHTML = 'Open again <span>→</span>';
+        return;
+      }
       const result = await requestJson<{ url: string }>('/api/checkout', { method: 'POST', body: JSON.stringify({ productId: product.id }) });
       if (!result.url || !result.url.startsWith('https://checkout.stripe.com/')) throw new Error('Checkout did not return a valid Stripe URL.');
       window.location.assign(result.url);
     } catch (error) {
       buy.disabled = false;
-      buy.innerHTML = 'Buy securely <span>→</span>';
+      buy.innerHTML = isFreeClaim ? 'Get free access <span>→</span>' : 'Buy securely <span>→</span>';
       if (errorBox) {
-        errorBox.textContent = error instanceof Error ? error.message : 'Checkout could not be opened.';
+        errorBox.textContent = error instanceof Error ? error.message : (isFreeClaim ? 'This product could not be unlocked.' : 'Checkout could not be opened.');
         errorBox.hidden = false;
       }
-      showToast('Checkout could not be opened.', 'error');
+      showToast(isFreeClaim ? 'Could not unlock product.' : 'Checkout could not be opened.', 'error');
     }
   });
   const swipe = document.querySelector<HTMLElement>('[data-product-swipe]');
@@ -482,7 +513,7 @@ function renderProduct(store: PublicStore): void {
     const dy = event.clientY - startY;
     if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.4 || collection.length < 2) return;
     const next = collection[(position + (dx < 0 ? 1 : -1) + collection.length) % collection.length];
-    if (next) window.location.assign(productPath(next));
+    if (next) navigate(productPath(next));
   });
   setMeta(`${product.name} — ShadowGLB`, product.desc || `${product.name} from ShadowGLB.`);
 }
@@ -521,6 +552,7 @@ async function boot(): Promise<void> {
   const route = routeFromPath(window.location.pathname);
   if (route === 'admin') {
     setMeta('Admin — ShadowGLB', 'Secure ShadowGLB store administration.');
+    const { renderAdmin } = await import('./admin.js');
     await renderAdmin(app);
     return;
   }
@@ -532,19 +564,73 @@ async function boot(): Promise<void> {
     renderNotFound();
     return;
   }
-  app.innerHTML = loadingShell(route);
-  bindChrome();
-  try {
-    const store = normalizeStore(await requestJson<unknown>('/api/store'));
+  const renderRoute = (store: PublicStore): void => {
     if (route === 'home') renderHome(store);
     if (route === 'systems') renderSystems(store);
     if (route === 'wall') renderWall(store);
     if (route === 'product') renderProduct(store);
+  };
+  const cached = readStoreCache();
+  if (cached) {
+    // Instant paint from the last known store; fresh data replaces it below only if changed.
+    renderRoute(normalizeStore(cached.payload));
+  } else {
+    app.innerHTML = loadingShell(route);
+    bindChrome();
+  }
+  try {
+    const payload = await requestJson<unknown>('/api/store');
+    const fingerprint = JSON.stringify(payload);
+    writeStoreCache(payload, fingerprint);
+    if (!cached || cached.fingerprint !== fingerprint) {
+      renderRoute(normalizeStore(payload));
+    }
   } catch (error) {
+    if (cached) return; // cached view already on screen; stay quiet and usable
     app.innerHTML = errorView(route, error);
     bindChrome();
     document.querySelector('[data-retry]')?.addEventListener('click', () => window.location.reload());
   }
+}
+
+/* ══════════ CLIENT-SIDE NAVIGATION ══════════ */
+// Every nav link, product card, and internal <a> previously forced a full browser
+// reload on every click — reboot the whole app + refetch the store from scratch
+// each time. This intercepts same-site clicks and swaps the page in place instead,
+// reusing the store already in memory/cache so navigation feels instant.
+function navigate(pathname: string): void {
+  const target = pathname + window.location.hash;
+  if (target === window.location.pathname + window.location.search + window.location.hash) return;
+  history.pushState({}, '', pathname);
+  window.scrollTo({ top: 0, behavior: 'auto' });
+  void boot();
+}
+
+function isPlainLeftClick(event: MouseEvent): boolean {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', (event) => {
+    if (!isPlainLeftClick(event)) return;
+    const link = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+    if (!link || link.target === '_blank' || link.hasAttribute('download')) return;
+    const href = link.getAttribute('href') || '';
+    if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+    let url: URL;
+    try {
+      url = new URL(href, window.location.href);
+    } catch (_error) {
+      return;
+    }
+    if (url.origin !== window.location.origin) return;
+    event.preventDefault();
+    navigate(url.pathname + url.search);
+  });
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('popstate', () => { void boot(); });
 }
 
 if (app) void boot();
