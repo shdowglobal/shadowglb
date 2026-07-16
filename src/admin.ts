@@ -331,8 +331,8 @@ function productIssues(product: Product): ProductIssue[] {
   if (product.active !== false) {
     const priceText = String(product.price ?? "").trim();
     const price = Number(priceText);
-    if (!/^\d{1,7}(?:\.\d{1,2})?$/.test(priceText) || !Number.isFinite(price) || price <= 0) {
-      issues.push({ field: "price", message: "Active products need a price greater than zero." });
+    if (!/^\d{1,7}(?:\.\d{1,2})?$/.test(priceText) || !Number.isFinite(price) || price < 0) {
+      issues.push({ field: "price", message: "Active products need a valid price — use 0 to make it free." });
     }
     if (!validDeliveryUrl(String(product.deliveryLink ?? ""))) {
       issues.push({ field: "deliveryLink", message: "Active products need a valid HTTPS delivery link before they can be sold." });
