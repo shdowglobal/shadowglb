@@ -1,4 +1,4 @@
-export type ProductType = 'Playbook' | 'System' | 'Tool' | 'Template' | 'Bundle';
+export type ProductType = 'Playbook' | 'System' | 'Tool' | 'Template' | 'Bundle' | 'File';
 
 export interface MediaItem {
   url: string;
@@ -46,6 +46,16 @@ export interface StoreContent {
   confsteps?: string[];
   systemsSub?: string;
   wallSub?: string;
+  filesSub?: string;
+  reviews?: string[];
+  contactEmail?: string;
+  contactPhone?: string;
+  socials?: string[];
+}
+
+export interface SocialLink {
+  label: string;
+  url: string;
 }
 
 export interface PublicStore {
@@ -55,4 +65,4 @@ export interface PublicStore {
   contactEmail: string;
 }
 
-export type PublicRoute = 'home' | 'systems' | 'wall' | 'product' | 'success' | 'admin' | 'not-found';
+export type PublicRoute = 'home' | 'systems' | 'wall' | 'product' | 'contact' | 'files' | 'success' | 'admin' | 'not-found';
