@@ -506,7 +506,7 @@ function contentKind(key: string, value: unknown): "string" | "number" | "boolea
   if (typeof value === "boolean") return "boolean";
   if (typeof value === "number") return "number";
   if (Array.isArray(value) && value.every((item) => typeof item === "string")) return "string-array";
-  if ((key === "strip" || key === "confsteps" || key === "socials" || key === "reviews") && (value === undefined || value === null)) return "string-array";
+  if ((key === "strip" || key === "confsteps" || key === "socials" || key === "reviews" || key === "services" || key === "showcase") && (value === undefined || value === null)) return "string-array";
   if (isRecord(value) || Array.isArray(value)) return "json";
   return "string";
 }
@@ -515,7 +515,7 @@ function contentFieldKeys(content: JsonRecord): string[] {
   const preferred = [
     "logo", "pill", "eyebrow", "title", "sub", "announce", "allLabel", "strip",
     "flogo", "fcopy", "confh", "confp", "confsteps",
-    "contactEmail", "contactPhone", "socials", "reviews",
+    "contactEmail", "contactPhone", "socials", "reviews", "services", "showcase",
   ];
   const keys = new Set([...preferred, ...Object.keys(content)]);
   return [...keys];
@@ -549,6 +549,10 @@ function renderContentField(key: string, value: unknown, index: number): string 
       : JSON.stringify(value ?? {}, null, 2);
     const hint = key === "socials"
       ? `<small>One per line, formatted as Label|https://link — e.g. Instagram|https://instagram.com/yourhandle</small>`
+      : key === "showcase"
+        ? `<small>Your work, one per line: Title|Description|https://image-or-video-url|https://live-link (last two optional).</small>`
+      : key === "services"
+        ? `<small>Homepage offers, one per line: Title|Price|Timeline|Description|Feature; Feature; Feature — leave blank to use defaults.</small>`
       : key === "reviews"
         ? `<small>One per line: Name|Review text|https://image-link (image optional). Shows on The Wall.</small>`
         : kind === "string-array" ? `<small>One item per line.</small>` : `<small>Advanced JSON field. Keep the braces and quotes valid.</small>`;

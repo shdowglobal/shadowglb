@@ -8,6 +8,7 @@ const SYSTEM_TYPES = new Set(['system', 'template']);
 export function routeFromPath(pathname: string): PublicRoute {
   const path = pathname.replace(/\/+$/, '') || '/';
   if (path === '/') return 'home';
+  if (path === '/store') return 'store';
   if (path === '/systems') return 'systems';
   if (path === '/files') return 'files';
   if (path === '/wall') return 'wall';
@@ -169,6 +170,7 @@ function chrome(route: PublicRoute, content: string, store?: PublicStore): strin
       <a class="brand" href="/" aria-label="ShadowGLB store"><span>${escapeHtml(logoLead)}</span><b>${escapeHtml(logoTail)}</b></a>
       <nav class="desktop-nav" aria-label="Primary navigation">
         <a class="nav-link${activeClass('home', route)}" href="/">Store</a>
+        <a class="nav-link${activeClass('store', route)}" href="/store/">Operator Kits</a>
         <a class="nav-link${activeClass('systems', route)}" href="/systems/">Systems &amp; Templates</a>
         <a class="nav-link nav-link--file${activeClass('files', route)}" href="/files/">The Files</a>
         <a class="nav-link${activeClass('wall', route)}" href="/wall/">The Wall</a>
@@ -183,10 +185,11 @@ function chrome(route: PublicRoute, content: string, store?: PublicStore): strin
       <div class="mobile-menu-head"><span>Navigation</span><button class="menu-close" type="button" aria-label="Close navigation">×</button></div>
       <nav aria-label="Mobile navigation">
         <a href="/"><small>01</small><span>Store</span></a>
-        <a href="/systems/"><small>02</small><span>Systems &amp; Templates</span></a>
-        <a href="/files/"><small>03</small><span>The Files</span></a>
-        <a href="/wall/"><small>04</small><span>The Wall</span></a>
-        <a href="/contact/"><small>05</small><span>Contact</span></a>
+        <a href="/store/"><small>02</small><span>Operator Kits</span></a>
+        <a href="/systems/"><small>03</small><span>Systems &amp; Templates</span></a>
+        <a href="/files/"><small>04</small><span>The Files</span></a>
+        <a href="/wall/"><small>05</small><span>The Wall</span></a>
+        <a href="/contact/"><small>06</small><span>Contact</span></a>
       </nav>
       <p>SHADOWGLB // MMXXVI</p>
     </div>
@@ -672,7 +675,7 @@ async function boot(): Promise<void> {
     return;
   }
   const renderRoute = (store: PublicStore): void => {
-    if (route === 'home') renderHome(store);
+    if (route === 'home' || route === 'store') renderHome(store);
     if (route === 'systems') renderSystems(store);
     if (route === 'files') renderFiles(store);
     if (route === 'wall') renderWall(store);
