@@ -45,7 +45,7 @@ if (existsSync(path.join(root, 'public'))) {
 }
 
 // Never ship a deploy whose JavaScript is missing — the storefront would render blank.
-for (const required of ['assets/app.js', 'assets/admin.js', 'assets/styles.css', 'index.html']) {
+for (const required of ['assets/entry.js', 'assets/app.js', 'assets/admin.js', 'assets/styles.css', 'services.css', 'index.html']) {
   if (!existsSync(path.join(dist, required))) {
     console.error(`BUILD FAILED: dist/${required} is missing after the build.`);
     process.exit(1);

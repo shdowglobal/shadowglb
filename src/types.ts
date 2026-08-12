@@ -48,6 +48,8 @@ export interface StoreContent {
   wallSub?: string;
   filesSub?: string;
   reviews?: string[];
+  services?: string[];
+  showcase?: string[];
   contactEmail?: string;
   contactPhone?: string;
   socials?: string[];
@@ -65,4 +67,4 @@ export interface PublicStore {
   contactEmail: string;
 }
 
-export type PublicRoute = 'home' | 'systems' | 'wall' | 'product' | 'contact' | 'files' | 'success' | 'admin' | 'not-found';
+export type PublicRoute = 'home' | 'store' | 'systems' | 'wall' | 'product' | 'contact' | 'files' | 'success' | 'admin' | 'not-found';
