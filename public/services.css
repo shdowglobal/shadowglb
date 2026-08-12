@@ -353,6 +353,18 @@ body:has(.service-announce) .service-nav {
   background: #12121b;
 }
 
+.service-cta--whatsapp {
+  border-color: rgba(37, 211, 102, 0.55);
+  background: rgba(37, 211, 102, 0.1);
+  color: #dbffe8;
+}
+
+.service-cta--whatsapp:hover {
+  border-color: #25d366;
+  background: rgba(37, 211, 102, 0.18);
+  box-shadow: 0 14px 42px rgba(37, 211, 102, 0.14);
+}
+
 .service-proof {
   display: flex;
   flex-wrap: wrap;
@@ -676,6 +688,29 @@ body:has(.service-announce) .service-nav {
   background: #7590ff;
 }
 
+.service-package-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.service-package-actions .service-cta--wide {
+  margin-top: 0;
+}
+
+.service-package .service-cta--whatsapp,
+.service-package--featured .service-cta--whatsapp {
+  border-color: rgba(37, 211, 102, 0.55);
+  background: rgba(37, 211, 102, 0.1);
+  color: #dbffe8;
+}
+
+.service-package .service-cta--whatsapp:hover,
+.service-package--featured .service-cta--whatsapp:hover {
+  border-color: #25d366;
+  background: rgba(37, 211, 102, 0.18);
+}
+
 .service-process ol {
   margin: 0;
   padding: 0;
@@ -862,6 +897,13 @@ body:has(.service-announce) .service-nav {
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+}
+
+.service-final-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
 }
 
 .work-rail::-webkit-scrollbar { display: none; }

@@ -127,4 +127,12 @@ test('checkout and store validation reject ambiguous IDs, prices, emails, and du
     ],
   }), /unique/i);
   assert.throws(() => validateAdminStoreInput(JSON.parse('{"products":[],"__proto__":{"polluted":true}}')), /forbidden key/i);
+
+  const contacts = validateAdminStoreInput({
+    content: { contactEmail: 'sales@example.co.uk', contactPhone: '+44 7700 900123' },
+  });
+  assert.equal(contacts.content.contactEmail, 'sales@example.co.uk');
+  assert.equal(contacts.content.contactPhone, '+44 7700 900123');
+  assert.throws(() => validateAdminStoreInput({ content: { contactEmail: 'invalid' } }), /contact email/i);
+  assert.throws(() => validateAdminStoreInput({ content: { contactPhone: '123' } }), /WhatsApp number/i);
 });

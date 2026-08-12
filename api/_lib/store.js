@@ -215,6 +215,18 @@ function validateAdminStoreInput(value) {
   assertSafeJson(value);
   const serialized = JSON.stringify(value);
   if (Buffer.byteLength(serialized, 'utf8') > 5 * 1024 * 1024) throw new HttpError(413, 'Store data is too large.', 'store_too_large');
+  if (value.content !== undefined) {
+    if (!isPlainObject(value.content)) throw new HttpError(400, 'content must be a JSON object.', 'invalid_content');
+    const { contactEmail, contactPhone } = value.content;
+    if (contactEmail !== undefined && contactEmail !== '' && !validateEmail(contactEmail)) {
+      throw new HttpError(400, 'The contact email address is invalid.', 'invalid_contact_email');
+    }
+    if (contactPhone !== undefined && contactPhone !== '') {
+      if (typeof contactPhone !== 'string') throw new HttpError(400, 'The WhatsApp number is invalid.', 'invalid_contact_phone');
+      const digits = contactPhone.replace(/\D/g, '');
+      if (digits.length < 7 || digits.length > 15) throw new HttpError(400, 'The WhatsApp number is invalid.', 'invalid_contact_phone');
+    }
+  }
   if (value.products !== undefined) {
     if (!Array.isArray(value.products) || value.products.length > 500) throw new HttpError(400, 'products must be an array of at most 500 items.', 'invalid_products');
     const ids = new Set();

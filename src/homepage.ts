@@ -117,29 +117,49 @@ function cleanLogo(value: string): [string, string] {
   return [lead || 'SHADOW', tail || 'GLB'];
 }
 
-function inquiry(offer: ServiceOffer | null, store: HomeStore): { href: string; label: string; external: boolean } {
+interface InquiryAction {
+  href: string;
+  label: string;
+  external: boolean;
+}
+
+export function emailInquiryHref(email: string, subject: string, message: string): string {
+  return `mailto:${email.trim()}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+}
+
+export function normalizeWhatsAppNumber(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  return digits.length >= 7 && digits.length <= 15 ? digits : '';
+}
+
+export function whatsappInquiryHref(phone: string, message: string): string {
+  const number = normalizeWhatsAppNumber(phone);
+  return number ? `https://wa.me/${number}?text=${encodeURIComponent(message)}` : '';
+}
+
+function inquiryActions(offer: ServiceOffer | null, store: HomeStore): InquiryAction[] {
   const subject = offer ? `${offer.title} enquiry` : 'ShadowGLB build enquiry';
   const message = offer
     ? `Hi ShadowGLB, I am interested in the ${offer.title}. My business/project is:`
     : 'Hi ShadowGLB, I want to discuss a dashboard or e-commerce build. My business/project is:';
-  const phone = store.contactPhone.replace(/\D/g, '');
-  if (phone) {
-    return {
-      href: `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
-      label: 'Contact on WhatsApp',
-      external: true,
-    };
-  }
-  return {
-    href: `mailto:${store.contactEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`,
+  const actions: InquiryAction[] = [{
+    href: emailInquiryHref(store.contactEmail, subject, message),
     label: 'Start by email',
     external: false,
-  };
+  }];
+  const whatsapp = whatsappInquiryHref(store.contactPhone, message);
+  if (whatsapp) {
+    actions.push({
+      href: whatsapp,
+      label: 'WhatsApp',
+      external: true,
+    });
+  }
+  return actions;
 }
 
-function inquiryLink(offer: ServiceOffer | null, store: HomeStore, className: string): string {
-  const link = inquiry(offer, store);
-  return `<a class="${className}" href="${escapeHtml(link.href)}"${link.external ? ' target="_blank" rel="noopener noreferrer"' : ''}><span>${escapeHtml(link.label)}</span><b aria-hidden="true">&nearr;</b></a>`;
+function inquiryLinks(offer: ServiceOffer | null, store: HomeStore, emailClass: string, whatsappClass: string): string {
+  return inquiryActions(offer, store).map((link, index) => `<a class="${index === 0 ? emailClass : whatsappClass}" href="${escapeHtml(link.href)}"${link.external ? ' target="_blank" rel="noopener noreferrer"' : ''}><span>${escapeHtml(link.label)}</span><b aria-hidden="true">&nearr;</b></a>`).join('');
 }
 
 function packageCard(offer: ServiceOffer, store: HomeStore, index: number): string {
@@ -152,7 +172,7 @@ function packageCard(offer: ServiceOffer, store: HomeStore, index: number): stri
     <p class="package-description">${escapeHtml(offer.description)}</p>
     <ul>${offer.features.map((feature) => `<li><i aria-hidden="true">&#10003;</i><span>${escapeHtml(feature)}</span></li>`).join('')}</ul>
     <small>${escapeHtml(offer.timeline)} &middot; Final quote confirmed after scope</small>
-    ${inquiryLink(offer, store, 'service-cta service-cta--wide')}
+    <div class="service-package-actions">${inquiryLinks(offer, store, 'service-cta service-cta--wide', 'service-cta service-cta--wide service-cta--whatsapp')}</div>
   </article>`;
 }
 
@@ -191,7 +211,7 @@ function template(store: HomeStore): string {
           <span class="service-kicker">[ 01 / DIGITAL BUILD DIVISION ]</span>
           <h1>Systems built<br>for the <em>next move.</em></h1>
           <p>AI dashboards and e-commerce stores for operators who need clarity, control, and conversion&mdash;not another unfinished template.</p>
-          <div class="service-hero-actions">${inquiryLink(null, store, 'service-cta service-cta--primary')}<a class="service-cta service-cta--ghost" href="#packages"><span>View the builds</span><b aria-hidden="true">&darr;</b></a></div>
+          <div class="service-hero-actions">${inquiryLinks(null, store, 'service-cta service-cta--primary', 'service-cta service-cta--whatsapp')}<a class="service-cta service-cta--ghost" href="#packages"><span>View the builds</span><b aria-hidden="true">&darr;</b></a></div>
           <div class="service-proof"><span><b>02</b> core services</span><span><b>01</b> accountable builder</span><span><b>100%</b> responsive</span></div>
         </div>
       </section>
@@ -223,7 +243,7 @@ function template(store: HomeStore): string {
       </section>
 
       <section class="service-final reveal">
-        <span>[ READY WHEN YOU ARE ]</span><h2>Bring the problem.<br>We build the system.</h2><p>Send the goal, the current setup, and one or two examples. You will get a clear scope and price before the build starts.</p>${inquiryLink(null, store, 'service-cta service-cta--primary')}
+        <span>[ READY WHEN YOU ARE ]</span><h2>Bring the problem.<br>We build the system.</h2><p>Send the goal, the current setup, and one or two examples. You will get a clear scope and price before the build starts.</p><div class="service-final-actions">${inquiryLinks(null, store, 'service-cta service-cta--primary', 'service-cta service-cta--whatsapp')}</div>
       </section>
     </main>
     <footer class="service-footer"><a href="/">SHADOW<span>GLB</span></a><nav><a href="/store/">Kits</a><a href="/systems/">Systems</a><a href="/wall/">Wall</a><a href="/contact/">Contact</a><a href="/admin/">Admin</a></nav><p>&copy; 2026 Shadow Global &middot; TCF Firm Ltd</p></footer>`;

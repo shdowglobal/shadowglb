@@ -494,6 +494,8 @@ function humaniseKey(key: string): string {
     confp: "Purchase confirmation message",
     confsteps: "Purchase confirmation steps",
     sub: "Hero subtitle",
+    contactEmail: "Contact email",
+    contactPhone: "WhatsApp number",
   };
   if (labels[key]) return labels[key];
   return key
@@ -560,6 +562,24 @@ function renderContentField(key: string, value: unknown, index: number): string 
       <label for="${id}">${label}</label>
       <textarea class="field" id="${id}" name="content-${index}" rows="${kind === "json" ? "8" : "4"}" ${data}>${escapeHtml(text)}</textarea>
       ${hint}${error}
+    </div>`;
+  }
+
+  if (key === "contactEmail") {
+    return `<div class="field admin-field">
+      <label for="${id}">${label}</label>
+      <input class="field" id="${id}" name="content-${index}" type="email" autocomplete="email" inputmode="email" ${data} value="${escapeHtml(value ?? "")}" placeholder="you@example.com">
+      <small>Use any valid inbox. Every Start by email button will open this address.</small>
+      ${error}
+    </div>`;
+  }
+
+  if (key === "contactPhone") {
+    return `<div class="field admin-field">
+      <label for="${id}">${label}</label>
+      <input class="field" id="${id}" name="content-${index}" type="tel" autocomplete="tel" inputmode="tel" pattern="[+0-9() .-]{7,32}" ${data} value="${escapeHtml(value ?? "")}" placeholder="+44 7700 900000">
+      <small>Include the international country code. Every WhatsApp button will use this number.</small>
+      ${error}
     </div>`;
   }
 
@@ -1139,6 +1159,7 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
     }
 
     if (formType === "content") {
+      if (!form.reportValidity()) return;
       const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
       const controls = [...form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("[data-content-key]")];
       const nextContent = clone(isRecord(store.content) ? store.content : {});

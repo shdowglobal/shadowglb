@@ -31,3 +31,21 @@ test('frontend route, product grouping, money, and Wall helpers', async () => {
   }]);
   assert.deepEqual(app.normalizeGallery([null, '', { nope: true }]), []);
 });
+
+test('homepage contact actions accept configurable email and WhatsApp details', async () => {
+  const homepage = await import('../dist/assets/homepage.js');
+  const admin = await readFile(new URL('../dist/assets/admin.js', import.meta.url), 'utf8');
+
+  assert.equal(
+    homepage.emailInquiryHref('hello@example.co.uk', 'Build enquiry', 'Hello there'),
+    'mailto:hello@example.co.uk?subject=Build%20enquiry&body=Hello%20there',
+  );
+  assert.equal(homepage.normalizeWhatsAppNumber('+44 7700 900-123'), '447700900123');
+  assert.equal(
+    homepage.whatsappInquiryHref('+44 7700 900-123', 'Hello there'),
+    'https://wa.me/447700900123?text=Hello%20there',
+  );
+  assert.equal(homepage.whatsappInquiryHref('123', 'Hello'), '');
+  assert.match(admin, /WhatsApp number/);
+  assert.match(admin, /type="email"/);
+});
