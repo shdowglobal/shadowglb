@@ -13,13 +13,5 @@ if (path === '/') {
     window.location.assign('/');
   }, true);
 
-  const labelHomeLinks = (): void => {
-    document.querySelectorAll<HTMLAnchorElement>('.desktop-nav a[href="/"], .mobile-menu a[href="/"]').forEach((link) => {
-      const label = link.querySelector('span');
-      if (label) label.textContent = 'Services';
-      else link.textContent = 'Services';
-    });
-  };
-  new MutationObserver(labelHomeLinks).observe(document.documentElement, { childList: true, subtree: true });
-  void import('./app.js').then(labelHomeLinks);
+  void import('./app.js');
 }

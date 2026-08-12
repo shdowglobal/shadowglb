@@ -1,5 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+
+test('storefront entry bridge cannot create a self-triggering navigation observer', async () => {
+  const entry = await readFile(new URL('../dist/assets/entry.js', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(entry, /MutationObserver/);
+  assert.match(entry, /window\.location\.assign/);
+});
 
 test('frontend route, product grouping, money, and Wall helpers', async () => {
   const app = await import('../dist/assets/app.js');
