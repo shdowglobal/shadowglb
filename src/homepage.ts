@@ -19,34 +19,63 @@ export interface ShowcaseItem {
 
 // Admin-editable portfolio. Each line in the `showcase` content field:
 //   Title | Description | https://image-or-video-url | https://optional-live-link
+// The simpler alternating format `Title`, then `https://live-link` is also
+// supported so existing admin content continues to work.
 export function parseShowcase(value: unknown): ShowcaseItem[] {
   if (!Array.isArray(value)) return [];
-  return value.flatMap((line) => {
-    if (typeof line !== 'string' || !line.trim()) return [];
-    const [title, description, media, link] = line.split('|').map((part) => part.trim());
-    if (!title) return [];
-    let url = '';
-    if (media) {
-      try {
-        const parsed = new URL(media);
-        if (parsed.protocol === 'https:') url = parsed.toString();
-      } catch (_error) { /* ignore bad media urls */ }
+  const lines = value
+    .filter((line): line is string => typeof line === 'string')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const items: ShowcaseItem[] = [];
+
+  const safeHttpsUrl = (candidate: string): string => {
+    try {
+      const parsed = new URL(candidate);
+      return parsed.protocol === 'https:' ? parsed.toString() : '';
+    } catch (_error) {
+      return '';
     }
-    let safeLink = '';
-    if (link) {
-      try {
-        const parsed = new URL(link);
-        if (parsed.protocol === 'https:') safeLink = parsed.toString();
-      } catch (_error) { /* ignore bad links */ }
-    }
-    return [{
+  };
+  const makeItem = (title: string, description = '', media = '', link = ''): ShowcaseItem => {
+    const url = safeHttpsUrl(media);
+    return {
       title,
-      description: description || '',
+      description,
       url,
       isVideo: /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url),
-      link: safeLink,
-    }];
-  });
+      link: safeHttpsUrl(link),
+    };
+  };
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line.includes('|')) {
+      const parts = line.split('|').map((part) => part.trim());
+      const title = parts[0];
+      if (!title || safeHttpsUrl(title)) continue;
+
+      // Handy one-line shorthand: Title|https://live-site
+      if (parts.length === 2 && safeHttpsUrl(parts[1])) {
+        items.push(makeItem(title, '', '', parts[1]));
+        continue;
+      }
+
+      items.push(makeItem(title, parts[1] || '', parts[2] || '', parts[3] || ''));
+      continue;
+    }
+
+    // The live store originally saved showcase entries as alternating lines:
+    // title, live URL, title, live URL. Pair those lines instead of rendering
+    // the URL as another project title.
+    if (safeHttpsUrl(line)) continue;
+    const nextLine = lines[index + 1] || '';
+    const pairedLink = safeHttpsUrl(nextLine);
+    items.push(makeItem(line, '', '', pairedLink));
+    if (pairedLink) index += 1;
+  }
+
+  return items;
 }
 
 const FALLBACK_STORE: HomeStore = {
@@ -231,7 +260,9 @@ function template(store: HomeStore): string {
         <div class="work-rail">${store.showcase.map((item, index) => `<article class="work-card${index === 0 ? ' is-active' : ''}">
           <div class="work-media"><span class="work-index">FILE // ${String(index + 1).padStart(2, '0')}</span>${item.url ? (item.isVideo
             ? `<video src="${escapeHtml(item.url)}" muted loop autoplay playsinline preload="metadata"></video>`
-            : `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.title)}" loading="lazy">`) : `<b>${escapeHtml(item.title.slice(0, 2).toUpperCase())}</b>`}</div>
+            : `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.title)}" loading="lazy">`) : item.link
+              ? `<iframe src="${escapeHtml(item.link)}" title="${escapeHtml(item.title)} website preview" loading="lazy" sandbox="allow-scripts" referrerpolicy="no-referrer" tabindex="-1"></iframe>`
+              : `<b>${escapeHtml(item.title.slice(0, 2).toUpperCase())}</b>`}${item.link ? `<a class="work-media-link" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" aria-label="View ${escapeHtml(item.title)} live"></a>` : ''}</div>
           <div class="work-body"><h3>${escapeHtml(item.title)}</h3>${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}${item.link ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">View live <b aria-hidden="true">&nearr;</b></a>` : ''}</div>
         </article>`).join('')}</div>
         ${store.showcase.length > 1 ? `<div class="work-dots">${store.showcase.map((_, index) => `<button type="button" class="${index === 0 ? 'is-active' : ''}" aria-label="Show work ${index + 1}"></button>`).join('')}</div>` : ''}

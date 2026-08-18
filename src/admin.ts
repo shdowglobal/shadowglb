@@ -552,7 +552,7 @@ function renderContentField(key: string, value: unknown, index: number): string 
     const hint = key === "socials"
       ? `<small>One per line, formatted as Label|https://link — e.g. Instagram|https://instagram.com/yourhandle</small>`
       : key === "showcase"
-        ? `<small>Your work, one per line: Title|Description|https://image-or-video-url|https://live-link (last two optional).</small>`
+        ? `<small>Quick format: put a title on one line and its live URL on the next. Full format: Title|Description|https://image-or-video-url|https://live-link.</small>`
       : key === "services"
         ? `<small>Homepage offers, one per line: Title|Price|Timeline|Description|Feature; Feature; Feature — leave blank to use defaults.</small>`
       : key === "reviews"

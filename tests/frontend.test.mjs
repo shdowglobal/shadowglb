@@ -49,3 +49,39 @@ test('homepage contact actions accept configurable email and WhatsApp details', 
   assert.match(admin, /WhatsApp number/);
   assert.match(admin, /type="email"/);
 });
+
+test('homepage showcase accepts simple title/link pairs and full media entries', async () => {
+  const homepage = await import('../dist/assets/homepage.js');
+
+  assert.deepEqual(homepage.parseShowcase([
+    'AI UGC OPERATOR',
+    'https://example.com/ugc',
+    'E-commerce command|https://example.com/store',
+  ]), [
+    {
+      title: 'AI UGC OPERATOR',
+      description: '',
+      url: '',
+      isVideo: false,
+      link: 'https://example.com/ugc',
+    },
+    {
+      title: 'E-commerce command',
+      description: '',
+      url: '',
+      isVideo: false,
+      link: 'https://example.com/store',
+    },
+  ]);
+
+  assert.deepEqual(homepage.parseShowcase([
+    'Command centre|Live dashboard build|https://cdn.example.com/preview.png|https://example.com/live',
+  ]), [{
+    title: 'Command centre',
+    description: 'Live dashboard build',
+    url: 'https://cdn.example.com/preview.png',
+    isVideo: false,
+    link: 'https://example.com/live',
+  }]);
+  assert.equal(homepage.parseShowcase(['https://example.com/orphan']).length, 0);
+});
