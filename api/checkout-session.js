@@ -1,6 +1,7 @@
 'use strict';
 
 const { allowMethods, HttpError, queryParam, sendError, sendJson } = require('./_lib/http');
+const { deliveryUrlForPaidSession } = require('./_lib/delivery');
 const { getStoreRow } = require('./_lib/supabase');
 const { retrieveCheckoutSession } = require('./_lib/stripe');
 const { findProduct, productDeliveryUrl, productName, validateProductId } = require('./_lib/store');
@@ -19,7 +20,7 @@ async function handler(req, res) {
     }
     const row = await getStoreRow();
     const product = findProduct(row.data, productId, { includeInactive: true });
-    const deliveryUrl = productDeliveryUrl(product);
+    const deliveryUrl = deliveryUrlForPaidSession(productDeliveryUrl(product), session.id);
     const customerEmail = (session.customer_details && session.customer_details.email) || session.customer_email || null;
     const name = productName(product);
     sendJson(res, 200, {

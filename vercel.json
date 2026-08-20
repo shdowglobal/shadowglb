@@ -4,6 +4,11 @@
   "buildCommand": "pnpm build",
   "outputDirectory": "dist",
   "cleanUrls": true,
+  "functions": {
+    "api/download/*.js": {
+      "includeFiles": "api/_assets/**"
+    }
+  },
   "rewrites": [
     { "source": "/store", "destination": "/" },
     { "source": "/store/", "destination": "/" },

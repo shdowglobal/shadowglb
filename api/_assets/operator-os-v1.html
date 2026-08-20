@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPERATOR OS — Shadow Global</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2300e676'/%3E%3Cpath d='M18 18h28v8H28v8h18v8H28v8H18z' fill='%23050506'/%3E%3C/svg%3E">
+<style>
+/* ===== PRODUCT STYLES ===== */
+
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#050506;--bg2:#0A0A0C;--bg3:#0F0F12;--bg4:#151517;--bg5:#1C1C20;
+  --wire:#1C1C20;--wire2:#28282E;--wire3:#3A3A42;
+  --acc:#00E676;--acc-dim:rgba(0,230,118,0.1);--acc-glow:rgba(0,230,118,0.22);
+  --gold:#E8B54D;--red:#FF4557;--blu:#4DA3FF;
+  --wt:#FFFFFF;--wt2:#A8A8B0;--wt3:#6A6A74;--wt4:#3A3A42;
+}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--wt);font-family:'Segoe UI',Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6;}
+::selection{background:var(--acc);color:#000;}
+::-webkit-scrollbar{width:9px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--wire2);border-radius:5px;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+input,textarea,select{font-family:inherit;}
+.sg{font-family:'Segoe UI',Arial,sans-serif,sans-serif;}
+.m{font-family:Consolas,'Courier New',monospace,monospace;}
+
+/* GATE */
+.gate{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.gate.hidden{display:none;}
+.gate-box{width:100%;max-width:400px;text-align:center;}
+.gate-logo{width:60px;height:60px;margin:0 auto 24px;background:var(--acc);border-radius:15px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 40px var(--acc-glow);}
+.gate-logo::before{content:'';width:22px;height:22px;background:#050506;transform:rotate(45deg);border-radius:4px;}
+.gate-h{font-family:'Segoe UI',Arial,sans-serif;font-size:28px;font-weight:700;letter-spacing:-0.03em;margin-bottom:8px;}
+.gate-sub{font-family:Consolas,'Courier New',monospace;font-size:10px;color:var(--wt3);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:30px;}
+.gate-input{width:100%;background:var(--bg3);border:1px solid var(--wire2);border-radius:12px;padding:15px 18px;color:var(--wt);font-size:15px;text-align:center;letter-spacing:0.1em;margin-bottom:12px;}
+.gate-input:focus{outline:none;border-color:var(--acc);}
+.gate-btn{width:100%;background:var(--acc);color:#050506;font-weight:700;font-size:15px;padding:15px;border-radius:12px;transition:all 0.15s;}
+.gate-btn:hover{background:#fff;}
+.gate-err{color:var(--red);font-size:12px;margin-top:12px;height:16px;font-family:Consolas,'Courier New',monospace;}
+
+.app{display:flex;min-height:100vh;}
+.app.locked{display:none;}
+
+/* SIDEBAR */
+.side{width:250px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--wire);position:sticky;top:0;height:100vh;display:flex;flex-direction:column;z-index:50;}
+.side-top{padding:24px 22px 20px;border-bottom:1px solid var(--wire);}
+.logo{display:flex;align-items:center;gap:11px;}
+.logo-mark{width:30px;height:30px;background:var(--acc);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.logo-mark::before{content:'';width:11px;height:11px;background:#050506;transform:rotate(45deg);border-radius:2px;}
+.logo-txt{font-family:'Segoe UI',Arial,sans-serif;font-size:15px;font-weight:700;letter-spacing:0.02em;}
+.logo-txt span{color:var(--acc);}
+.logo-sub{font-family:Consolas,'Courier New',monospace;font-size:8px;color:var(--wt3);letter-spacing:0.2em;text-transform:uppercase;margin-top:8px;margin-left:41px;}
+.nav{padding:16px 12px;flex:1;overflow-y:auto;}
+.nav-lbl{font-family:Consolas,'Courier New',monospace;font-size:8px;letter-spacing:0.2em;color:var(--wt3);text-transform:uppercase;padding:0 12px;margin:18px 0 8px;}
+.nav-lbl:first-child{margin-top:0;}
+.nav-item{display:flex;align-items:center;gap:11px;padding:10px 13px;border-radius:9px;cursor:pointer;transition:all 0.14s;margin-bottom:2px;position:relative;}
+.nav-item:hover{background:var(--bg3);}
+.nav-item.active{background:var(--acc-dim);}
+.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:16px;background:var(--acc);border-radius:0 3px 3px 0;}
+.nav-n{font-family:Consolas,'Courier New',monospace;font-size:10px;color:var(--wt3);width:18px;flex-shrink:0;}
+.nav-item.active .nav-n{color:var(--acc);}
+.nav-tx{font-size:13px;color:var(--wt2);font-weight:500;}
+.nav-item.active .nav-tx{color:var(--wt);font-weight:600;}
+.nav-badge{margin-left:auto;font-family:Consolas,'Courier New',monospace;font-size:7.5px;background:var(--acc-dim);color:var(--acc);padding:2px 6px;border-radius:4px;letter-spacing:0.05em;}
+
+/* MAIN */
+.main{flex:1;min-width:0;}
+.topbar{padding:18px 36px;border-bottom:1px solid var(--wire);background:rgba(5,5,6,0.9);backdrop-filter:blur(14px);position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;}
+.tb-title{font-family:'Segoe UI',Arial,sans-serif;font-size:19px;font-weight:700;letter-spacing:-0.02em;}
+.tb-crumb{font-family:Consolas,'Courier New',monospace;font-size:8.5px;color:var(--wt3);letter-spacing:0.12em;text-transform:uppercase;margin-top:3px;}
+.content{padding:36px;max-width:900px;}
+.page{display:none;}
+.page.active{display:block;animation:fade 0.3s ease;}
+@keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+/* MODULE CONTENT */
+.mod-hero{margin-bottom:34px;padding-bottom:28px;border-bottom:1px solid var(--wire);}
+.mod-eyebrow{font-family:Consolas,'Courier New',monospace;font-size:9px;color:var(--acc);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:14px;}
+.mod-h{font-family:'Segoe UI',Arial,sans-serif;font-size:36px;font-weight:700;letter-spacing:-0.035em;line-height:1.1;margin-bottom:14px;}
+.mod-sub{font-size:16px;color:var(--wt2);max-width:600px;}
+h3{font-family:'Segoe UI',Arial,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:34px 0 14px;}
+h3:first-of-type{margin-top:0;}
+p{font-size:15px;color:var(--wt2);margin-bottom:16px;}
+p strong{color:var(--wt);font-weight:600;}
+.callout{background:var(--bg2);border:1px solid var(--wire2);border-left:2px solid var(--acc);border-radius:0 12px 12px 0;padding:20px 24px;margin:22px 0;}
+.callout-t{font-family:Consolas,'Courier New',monospace;font-size:9px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:10px;}
+.callout p{margin-bottom:0;font-size:14.5px;}
+.step{display:flex;gap:16px;padding:18px 0;border-bottom:1px solid var(--wire);}
+.step:last-child{border-bottom:none;}
+.step-n{font-family:'Segoe UI',Arial,sans-serif;font-size:22px;font-weight:700;color:var(--wt4);flex-shrink:0;line-height:1;}
+.step-t{font-size:15.5px;font-weight:600;color:var(--wt);margin-bottom:6px;}
+.step-d{font-size:14px;color:var(--wt2);}
+ul.pts{list-style:none;margin:16px 0;}
+ul.pts li{padding:10px 0 10px 26px;position:relative;font-size:14.5px;color:var(--wt2);border-bottom:1px solid var(--wire);}
+ul.pts li:last-child{border-bottom:none;}
+ul.pts li::before{content:'▸';position:absolute;left:0;color:var(--acc);}
+ul.pts li strong{color:var(--wt);font-weight:600;}
+
+/* AI TOOL */
+.tool-box{background:var(--bg2);border:1px solid var(--wire2);border-radius:16px;overflow:hidden;margin-bottom:24px;}
+.tool-hd{padding:22px 26px;border-bottom:1px solid var(--wire);display:flex;align-items:center;gap:12px;}
+.tool-ic{width:36px;height:36px;background:var(--acc);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.tool-t{font-family:'Segoe UI',Arial,sans-serif;font-size:17px;font-weight:700;letter-spacing:-0.02em;}
+.tool-d{font-size:12.5px;color:var(--wt3);margin-top:2px;}
+.tool-bd{padding:26px;}
+.field{margin-bottom:18px;}
+.field-l{display:block;font-size:13px;color:var(--wt);font-weight:600;margin-bottom:7px;}
+.field-h{font-size:12px;color:var(--wt3);margin-bottom:8px;}
+.field-i{width:100%;background:var(--bg3);border:1px solid var(--wire2);border-radius:10px;padding:12px 14px;color:var(--wt);font-size:14px;transition:border 0.14s;}
+.field-i:focus{outline:none;border-color:var(--acc);}
+textarea.field-i{min-height:80px;resize:vertical;line-height:1.6;}
+.gen-btn{width:100%;background:var(--acc);color:#050506;font-weight:700;font-size:15px;padding:15px;border-radius:11px;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:9px;}
+.gen-btn:hover:not(:disabled){background:#fff;}
+.gen-btn:disabled{opacity:0.55;cursor:not-allowed;}
+.out{margin-top:24px;background:var(--bg3);border:1px solid var(--wire2);border-radius:12px;padding:24px;display:none;}
+.out.show{display:block;animation:fade 0.35s ease;}
+.out-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--wire);}
+.out-t{font-family:Consolas,'Courier New',monospace;font-size:9px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;}
+.copy-btn{font-family:Consolas,'Courier New',monospace;font-size:10px;background:var(--bg5);border:1px solid var(--wire2);padding:6px 12px;border-radius:7px;color:var(--wt2);transition:all 0.14s;}
+.copy-btn:hover{border-color:var(--acc);color:var(--acc);}
+.out-body{font-size:14.5px;color:var(--wt2);line-height:1.8;white-space:pre-wrap;}
+.out-body strong{color:var(--wt);}
+.spinner{display:inline-block;width:15px;height:15px;border:2px solid rgba(5,5,6,0.3);border-top-color:#050506;border-radius:50%;animation:spin 0.7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* PRICE ENGINE */
+.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.price-result{display:none;margin-top:18px;background:var(--bg3);border:1px solid var(--acc);border-radius:12px;padding:20px;}
+.price-result.show{display:block;}
+.price-kicker{font-family:Consolas,'Courier New',monospace;font-size:9px;color:var(--acc);letter-spacing:.16em;text-transform:uppercase;margin-bottom:8px;}
+.price-main{font-family:'Segoe UI',Arial,sans-serif;font-size:42px;line-height:1;color:var(--wt);font-weight:700;margin-bottom:10px;}
+.price-range{color:var(--wt2);font-size:14px;margin-bottom:14px;}
+.price-breakdown{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0;}
+.price-stat{background:var(--bg2);border:1px solid var(--wire);border-radius:9px;padding:11px;}
+.price-stat b{display:block;color:var(--wt);font-family:Consolas,'Courier New',monospace;font-size:13px;margin-bottom:3px;}
+.price-stat span{font-size:10px;color:var(--wt3);text-transform:uppercase;letter-spacing:.08em;}
+.tool-note{font-size:12px;color:var(--wt3);line-height:1.6;margin-top:12px;}
+
+/* VAULT */
+.swipe{background:var(--bg2);border:1px solid var(--wire);border-radius:12px;padding:20px 22px;margin-bottom:12px;}
+.swipe-t{font-size:14px;font-weight:600;color:var(--wt);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.swipe-c{font-family:Consolas,'Courier New',monospace;font-size:12.5px;color:var(--wt2);line-height:1.9;background:var(--bg3);border:1px solid var(--wire);border-radius:8px;padding:14px 16px;}
+.swipe-copy{font-family:Consolas,'Courier New',monospace;font-size:9px;color:var(--wt3);border:1px solid var(--wire2);background:var(--bg3);padding:5px 9px;border-radius:6px;}
+.swipe-copy:hover{color:var(--acc);border-color:var(--acc);}
+
+.mobile-nav{display:none;}
+
+@media(max-width:850px){
+  .side{display:none;}
+  .content{padding:20px 20px 92px;}
+  .topbar{padding:16px 20px;}
+  .mod-h{font-size:27px;}
+  .mobile-nav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:300;gap:6px;overflow-x:auto;padding:9px 10px calc(9px + env(safe-area-inset-bottom));background:rgba(13,13,16,.97);border-top:1px solid var(--wire2);backdrop-filter:blur(16px);scrollbar-width:none;}
+  .mobile-nav::-webkit-scrollbar{display:none;}
+  .mobile-nav button{flex:0 0 auto;min-width:62px;padding:9px 10px;border-radius:9px;color:var(--wt3);font-family:Consolas,'Courier New',monospace;font-size:9px;border:1px solid transparent;background:var(--bg3);}
+  .mobile-nav button.active{color:#050506;background:var(--acc);font-weight:700;}
+  .price-grid,.price-breakdown{grid-template-columns:1fr;}
+}
+
+
+/* ===== SALES PAGE STYLES (scoped to #salesView) ===== */
+
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#050506;--bg2:#0A0A0C;--bg3:#0F0F12;--bg4:#151517;
+  --wire:#1C1C20;--wire2:#28282E;--wire3:#3A3A42;
+  --acc:#00E676;--acc-dim:rgba(0,230,118,0.1);--acc-glow:rgba(0,230,118,0.25);
+  --gold:#E8B54D;--red:#FF4557;
+  --wt:#FFFFFF;--wt2:#A8A8B0;--wt3:#6A6A74;--wt4:#3A3A42;
+}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--wt);font-family:'Segoe UI',Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6;}
+::selection{background:var(--acc);color:#000;}
+.m{font-family:Consolas,'Courier New',monospace,monospace;}
+.sg{font-family:'Segoe UI',Arial,sans-serif,sans-serif;}
+#salesView .wrap{max-width:820px;margin:0 auto;padding:0 24px;}
+a{color:inherit;text-decoration:none;}
+
+/* ambient */
+body::before{content:'';position:fixed;top:-250px;left:15%;width:700px;height:500px;background:radial-gradient(ellipse,rgba(0,230,118,0.06),transparent 70%);pointer-events:none;z-index:0;}
+
+/* TOP BAR */
+#salesView .topbar{border-bottom:1px solid var(--wire);padding:16px 0;position:relative;z-index:2;}
+#salesView .topbar .wrap{display:flex;align-items:center;justify-content:space-between;}
+#salesView .brand{display:flex;align-items:center;gap:10px;font-family:'Segoe UI',Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:0.02em;}
+.brand-mark{width:26px;height:26px;background:var(--acc);border-radius:7px;display:flex;align-items:center;justify-content:center;}
+.brand-mark::before{content:'';width:10px;height:10px;background:#050506;transform:rotate(45deg);border-radius:2px;}
+.brand span{color:var(--acc);}
+.top-tag{font-family:Consolas,'Courier New',monospace;font-size:9px;color:var(--wt3);letter-spacing:0.15em;text-transform:uppercase;}
+
+/* HERO */
+.hero{padding:80px 0 60px;position:relative;z-index:2;}
+#salesView .eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:Consolas,'Courier New',monospace;font-size:9px;color:var(--acc);background:var(--acc-dim);border:1px solid rgba(0,230,118,0.2);padding:7px 14px;border-radius:20px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:28px;}
+.eyebrow .d{width:6px;height:6px;border-radius:50%;background:var(--acc);}
+#salesView h1{font-family:'Segoe UI',Arial,sans-serif;font-size:52px;font-weight:700;line-height:1.05;letter-spacing:-0.04em;margin-bottom:24px;}
+h1 .acc{color:var(--acc);}
+#salesView .sub{font-size:19px;color:var(--wt2);max-width:620px;margin-bottom:36px;line-height:1.65;}
+.sub strong{color:var(--wt);font-weight:600;}
+.hero-cta{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+#salesView .btn{background:var(--acc);color:#050506;font-weight:700;font-size:16px;padding:17px 34px;border-radius:10px;display:inline-flex;align-items:center;gap:10px;transition:all 0.15s;border:none;cursor:pointer;font-family:inherit;box-shadow:0 6px 30px var(--acc-glow);}
+.btn:hover{background:#fff;transform:translateY(-2px);}
+.btn-note{font-family:Consolas,'Courier New',monospace;font-size:11px;color:var(--wt3);}
+
+/* PROOF STRIP */
+#salesView .strip{border-top:1px solid var(--wire);border-bottom:1px solid var(--wire);padding:22px 0;background:var(--bg2);position:relative;z-index:2;}
+#salesView .strip .wrap{display:flex;gap:40px;flex-wrap:wrap;justify-content:center;}
+.strip-item{font-family:Consolas,'Courier New',monospace;font-size:10px;color:var(--wt2);letter-spacing:0.1em;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+.strip-item::before{content:'▸';color:var(--acc);}
+
+/* SECTION */
+#salesView section{padding:70px 0;position:relative;z-index:2;}
+#salesView .sec-label{font-family:Consolas,'Courier New',monospace;font-size:9px;color:var(--wt3);letter-spacing:0.25em;text-transform:uppercase;margin-bottom:18px;display:flex;align-items:center;gap:12px;}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--wire);}
+#salesView h2{font-family:'Segoe UI',Arial,sans-serif;font-size:34px;font-weight:700;letter-spacing:-0.03em;line-height:1.15;margin-bottom:20px;}
+h2 .acc{color:var(--acc);}
+#salesView .lead{font-size:17px;color:var(--wt2);margin-bottom:32px;max-width:640px;}
+.lead strong{color:var(--wt);font-weight:600;}
+
+/* PROBLEM */
+#salesView .prob{display:grid;gap:14px;}
+.prob-item{background:var(--bg2);border:1px solid var(--wire);border-radius:12px;padding:20px 22px;display:flex;gap:16px;align-items:flex-start;}
+.prob-x{color:var(--red);font-size:18px;line-height:1;flex-shrink:0;margin-top:2px;}
+.prob-t{font-size:15px;color:var(--wt);font-weight:600;margin-bottom:4px;}
+.prob-d{font-size:14px;color:var(--wt3);}
+
+/* WHAT'S INSIDE */
+#salesView .part{background:var(--bg2);border:1px solid var(--wire);border-radius:16px;padding:32px;margin-bottom:20px;position:relative;overflow:hidden;}
+.part::before{content:'';position:absolute;top:0;left:0;width:60px;height:2px;background:var(--acc);}
+.part-n{font-family:Consolas,'Courier New',monospace;font-size:10px;color:var(--acc);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;}
+.part-t{font-family:'Segoe UI',Arial,sans-serif;font-size:24px;font-weight:700;letter-spacing:-0.02em;margin-bottom:10px;}
+.part-d{font-size:15px;color:var(--wt2);margin-bottom:22px;}
+#salesView .mod{display:flex;gap:14px;padding:13px 0;border-bottom:1px solid var(--wire);align-items:flex-start;}
+.mod:last-child{border-bottom:none;}
+.mod-n{font-family:Consolas,'Courier New',monospace;font-size:11px;color:var(--wt3);flex-shrink:0;padding-top:2px;width:24px;}
+.mod-t{font-size:14.5px;font-weight:600;color:var(--wt);margin-bottom:3px;}
+.mod-d{font-size:13px;color:var(--wt3);}
+.tool-badge{display:inline-block;font-family:Consolas,'Courier New',monospace;font-size:8px;background:var(--acc-dim);color:var(--acc);padding:3px 8px;border-radius:5px;letter-spacing:0.1em;text-transform:uppercase;margin-left:8px;vertical-align:middle;}
+
+/* VALUE STACK */
+#salesView .stack{background:var(--bg2);border:1px solid var(--wire2);border-radius:16px;overflow:hidden;margin-bottom:28px;}
+.stack-row{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--wire);gap:16px;}
+.stack-row:last-child{border-bottom:none;}
+.stack-n{font-size:14.5px;color:var(--wt2);}
+.stack-n b{color:var(--wt);font-weight:600;}
+.stack-v{font-family:Consolas,'Courier New',monospace;font-size:14px;color:var(--wt3);flex-shrink:0;}
+.stack-total{background:var(--bg4);padding:20px 24px;display:flex;justify-content:space-between;align-items:center;}
+.stack-total-l{font-family:'Segoe UI',Arial,sans-serif;font-size:16px;font-weight:700;}
+.stack-total-v{font-family:Consolas,'Courier New',monospace;font-size:20px;font-weight:700;color:var(--wt3);text-decoration:line-through;}
+
+/* PRICE */
+#salesView .price-box{background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1px solid var(--acc);border-radius:18px;padding:40px;text-align:center;position:relative;overflow:hidden;}
+.price-box::before{content:'';position:absolute;top:0;left:0;width:100%;height:2px;background:var(--acc);}
+.price-tag{display:inline-block;font-family:Consolas,'Courier New',monospace;font-size:9px;background:var(--acc);color:#050506;padding:6px 14px;border-radius:20px;letter-spacing:0.15em;text-transform:uppercase;font-weight:700;margin-bottom:20px;}
+.price-was{font-family:Consolas,'Courier New',monospace;font-size:15px;color:var(--wt3);text-decoration:line-through;margin-bottom:6px;}
+.price-now{font-family:'Segoe UI',Arial,sans-serif;font-size:64px;font-weight:700;letter-spacing:-0.04em;line-height:1;margin-bottom:10px;}
+.price-now .p{color:var(--acc);}
+.price-note{font-size:14px;color:var(--wt2);margin-bottom:28px;}
+.price-note strong{color:var(--wt);}
+.guarantee{margin-top:22px;font-family:Consolas,'Courier New',monospace;font-size:11px;color:var(--wt3);}
+
+/* FAQ */
+#salesView .faq-item{background:var(--bg2);border:1px solid var(--wire);border-radius:12px;padding:22px 24px;margin-bottom:12px;}
+.faq-q{font-size:15.5px;font-weight:600;color:var(--wt);margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;}
+.faq-q::before{content:'?';color:var(--acc);font-family:Consolas,'Courier New',monospace;flex-shrink:0;}
+.faq-a{font-size:14.5px;color:var(--wt2);padding-left:22px;}
+
+/* FINAL */
+#salesView .final{text-align:center;padding:80px 0;border-top:1px solid var(--wire);}
+.final h2{font-size:38px;margin-bottom:18px;}
+#salesView .final .lead{margin:0 auto 32px;}
+
+#salesView footer{border-top:1px solid var(--wire);padding:30px 0;text-align:center;}
+.foot-t{font-family:Consolas,'Courier New',monospace;font-size:10px;color:var(--wt3);letter-spacing:0.1em;}
+
+@media(max-width:700px){
+  h1{font-size:34px;}h2{font-size:26px;}.sub{font-size:16px;}
+  .hero{padding:50px 0 40px;}section{padding:50px 0;}
+  .price-now{font-size:48px;}.part{padding:24px;}
+  #salesView .strip .wrap{gap:18px;flex-direction:column;align-items:center;}
+}
+
+
+/* ===== VIEW SWITCHING ===== */
+#salesView{display:none;}
+#salesView.hidden{display:none;}
+#productView{display:block;}
+#productView.show{display:block;}
+
+/* unlock bar */
+.unlock-bar{display:none;}
+.unlock-bar.hidden{display:none;}
+.unlock-txt{font-family:Consolas,'Courier New',monospace;font-size:11px;color:var(--wt3);letter-spacing:0.05em;}
+.unlock-in{background:var(--bg3);border:1px solid var(--wire2);border-radius:9px;padding:10px 14px;color:var(--wt);font-size:13px;width:190px;text-align:center;letter-spacing:0.08em;}
+.unlock-in:focus{outline:none;border-color:var(--acc);}
+.unlock-go{background:var(--acc);color:#050506;font-weight:700;font-size:13px;padding:10px 20px;border-radius:9px;}
+.unlock-go:hover{background:#fff;}
+.unlock-err{font-family:Consolas,'Courier New',monospace;font-size:10px;color:var(--red);}
+@media(max-width:600px){.unlock-txt{display:none;}.unlock-in{width:150px;}}
+</style>
+</head>
+<body>
+
+<!-- ============ SALES VIEW ============ -->
+<div id="salesView">
+
+
+<div class="topbar"><div class="wrap">
+  <div class="brand"><div class="brand-mark"></div>SHADOW<span> GLOBAL</span></div>
+  <div class="top-tag">Operator Series</div>
+</div></div>
+
+<!-- HERO -->
+<div class="hero"><div class="wrap">
+  <div class="eyebrow"><span class="d"></span>The Flagship System</div>
+  <h1>Stop selling<br>information.<br><span class="acc">Sell systems.</span></h1>
+  <p class="sub">Everyone's selling another PDF about making money online. <strong>OPERATOR OS is a practical execution system</strong> — six focused modules, a working pricing calculator, and a swipe vault you can use immediately.</p>
+  <div class="hero-cta">
+    <a href="#get" class="btn">Get Operator OS →</a>
+    <span class="btn-note">Founding price · limited</span>
+  </div>
+</div></div>
+
+<div class="strip"><div class="wrap">
+  <div class="strip-item">6 Full Modules</div>
+  <div class="strip-item">Working Price Engine</div>
+  <div class="strip-item">40+ Hook Bank</div>
+  <div class="strip-item">Lifetime Access</div>
+</div></div>
+
+<!-- PROBLEM -->
+<section><div class="wrap">
+  <div class="sec-label">The Real Problem</div>
+  <h2>You don't need more<br>information. You need <span class="acc">a system.</span></h2>
+  <p class="lead">You've probably already watched the videos, saved the threads, maybe even bought a course. And you're still stuck — because none of it told you exactly what to <strong>do</strong>, in order, with tools that actually do the work.</p>
+  <div class="prob">
+    <div class="prob-item"><span class="prob-x">✕</span><div><div class="prob-t">You don't know what to sell</div><div class="prob-d">Endless ideas, no decision. Nothing ever ships because nothing is ever finalised.</div></div></div>
+    <div class="prob-item"><span class="prob-x">✕</span><div><div class="prob-t">You have no idea what to charge</div><div class="prob-d">So you guess low, undercut yourself, and make the whole thing not worth doing.</div></div></div>
+    <div class="prob-item"><span class="prob-x">✕</span><div><div class="prob-t">You built something and nobody saw it</div><div class="prob-d">No traffic system, no outreach, no plan for getting in front of buyers.</div></div></div>
+    <div class="prob-item"><span class="prob-x">✕</span><div><div class="prob-t">You freeze at the selling part</div><div class="prob-d">Building feels safe. Selling feels exposing. So you build more instead of selling.</div></div></div>
+  </div>
+</div></section>
+
+<!-- WHAT'S INSIDE -->
+<section><div class="wrap">
+  <div class="sec-label">What You Get</div>
+  <h2>Three parts.<br>One complete <span class="acc">operation.</span></h2>
+  <p class="lead">Not a course you watch and forget. A system you run.</p>
+
+  <div class="part">
+    <div class="part-n">Part One</div>
+    <div class="part-t">The Manual</div>
+    <div class="part-d">The complete operator method — six modules, in the exact order you execute them.</div>
+    <div class="mod"><span class="mod-n">01</span><div><div class="mod-t">The Position</div><div class="mod-d">Choosing the one thing you sell — and killing everything else</div></div></div>
+    <div class="mod"><span class="mod-n">02</span><div><div class="mod-t">The Build</div><div class="mod-d">Making a premium product fast, without a team or a budget</div></div></div>
+    <div class="mod"><span class="mod-n">03</span><div><div class="mod-t">The Store</div><div class="mod-d">Sales infrastructure that keeps 100% of your margin</div></div></div>
+    <div class="mod"><span class="mod-n">04</span><div><div class="mod-t">The Signal</div><div class="mod-d">Getting attention consistently — faceless, no audience required</div></div></div>
+    <div class="mod"><span class="mod-n">05</span><div><div class="mod-t">The Close</div><div class="mod-d">Turning strangers into buyers through direct outreach</div></div></div>
+    <div class="mod"><span class="mod-n">06</span><div><div class="mod-t">The Machine</div><div class="mod-d">Making it repeatable so it runs without you restarting every time</div></div></div>
+  </div>
+
+  <div class="part">
+    <div class="part-n">Part Two</div>
+    <div class="part-t">The Price Engine</div>
+    <div class="part-d">A working browser-based calculator for forming a realistic starting-price hypothesis.</div>
+    <div class="mod"><span class="mod-n">01</span><div><div class="mod-t">Price Engine</div><div class="mod-d">Balances product depth, buyer value and support level, then gives you founding, standard and premium estimates</div></div></div>
+  </div>
+
+  <div class="part">
+    <div class="part-n">Part Three</div>
+    <div class="part-t">The Vault</div>
+    <div class="part-d">Every swipe file you need, ready to copy and adapt.</div>
+    <div class="mod"><span class="mod-n">01</span><div><div class="mod-t">40+ Hook Bank</div><div class="mod-d">Openers that stop the scroll, categorised by content type</div></div></div>
+    <div class="mod"><span class="mod-n">02</span><div><div class="mod-t">DM &amp; Outreach Scripts</div><div class="mod-d">First message, follow-ups, and the close — plus objection handlers</div></div></div>
+    <div class="mod"><span class="mod-n">03</span><div><div class="mod-t">Store &amp; Launch Copy</div><div class="mod-d">Product descriptions, launch sequences, urgency messaging</div></div></div>
+  </div>
+</div></section>
+
+<!-- VALUE -->
+<section><div class="wrap">
+  <div class="sec-label">The Maths</div>
+  <h2>What this would cost<br>you <span class="acc">separately.</span></h2>
+  <div class="stack">
+    <div class="stack-row"><span class="stack-n"><b>The Manual</b> — 6 module operator system</span><span class="stack-v">Included</span></div>
+    <div class="stack-row"><span class="stack-n"><b>Price Engine</b> — working offline calculator</span><span class="stack-v">Included</span></div>
+    <div class="stack-row"><span class="stack-n"><b>The Vault</b> — hooks, outreach and launch copy</span><span class="stack-v">Included</span></div>
+    <div class="stack-total"><span class="stack-total-l">One honest price</span><span class="stack-total-v">£97</span></div>
+  </div>
+</div></section>
+
+<!-- PRICE -->
+<section id="get"><div class="wrap">
+  <div class="price-box">
+    <div class="price-tag">Founding Price</div>
+    <div class="price-now"><span class="p">£97</span></div>
+    <div class="price-note"><strong>One payment. Lifetime access to v1.</strong><br>No subscription and no hidden AI usage costs.</div>
+    <a href="https://www.shadowglb.com/files/" class="btn" style="font-size:17px;padding:18px 40px;">Get Instant Access →</a>
+    <div class="guarantee">Digital delivery after verified payment</div>
+  </div>
+</div></section>
+
+<!-- FAQ -->
+<section><div class="wrap">
+  <div class="sec-label">Straight Answers</div>
+  <h2>Questions you're<br>probably <span class="acc">asking.</span></h2>
+
+  <div class="faq-item">
+    <div class="faq-q">Is this just another course?</div>
+    <div class="faq-a">No. It combines a concise execution manual, a working offline Price Engine and reusable swipe files. You use the tools and templates while building your offer.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Do I need an audience already?</div>
+    <div class="faq-a">No. Module 4 (The Signal) and Module 5 (The Close) are specifically built for people starting from zero — faceless content and direct outreach, not "post and pray."</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Do I need to show my face?</div>
+    <div class="faq-a">No. The entire system is designed to work faceless. That's the default, not a workaround.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">How fast can I use this?</div>
+    <div class="faq-a">Everything works in the browser with no API key or subscription. You can begin the manual, run the Price Engine and use the swipe files immediately.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Why is it this price?</div>
+    <div class="faq-a">The price reflects six focused modules, a working calculator and a reusable vault. It does not guarantee revenue; the value comes from applying the system consistently.</div>
+  </div>
+</div></section>
+
+<!-- FINAL -->
+<div class="final"><div class="wrap">
+  <h2>You've got the ideas.<br>This is the <span class="acc">execution.</span></h2>
+  <p class="lead">The gap between people making money with digital products and people still planning isn't talent. It's having a system and actually running it.</p>
+  <a href="https://www.shadowglb.com/files/" class="btn" style="font-size:17px;padding:18px 40px;">Get Operator OS — £97 →</a>
+</div></div>
+
+<footer><div class="wrap">
+  <div class="foot-t">SHADOW GLOBAL · OPERATOR SERIES · SHADOWGLB.COM</div>
+</div></footer>
+
+
+</div>
+
+<!-- ============ UNLOCK BAR ============ -->
+<div class="unlock-bar" id="unlockBar">
+  <span class="unlock-txt">Already purchased?</span>
+  <input class="unlock-in" id="codeIn" placeholder="Access code" autocomplete="off">
+  <button class="unlock-go" onclick="tryCode()">Unlock</button>
+  <span class="unlock-err" id="codeErr"></span>
+</div>
+
+<!-- ============ PRODUCT VIEW ============ -->
+<div id="productView">
+
+
+
+
+<div class="app" id="app">
+  <aside class="side">
+    <div class="side-top">
+      <div class="logo"><div class="logo-mark"></div><div class="logo-txt">OPERATOR<span> OS</span></div></div>
+      <div class="logo-sub">Shadow Global</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-lbl">The Manual</div>
+      <div class="nav-item active" data-p="m1"><span class="nav-n">01</span><span class="nav-tx">The Position</span></div>
+      <div class="nav-item" data-p="m2"><span class="nav-n">02</span><span class="nav-tx">The Build</span></div>
+      <div class="nav-item" data-p="m3"><span class="nav-n">03</span><span class="nav-tx">The Store</span></div>
+      <div class="nav-item" data-p="m4"><span class="nav-n">04</span><span class="nav-tx">The Signal</span></div>
+      <div class="nav-item" data-p="m5"><span class="nav-n">05</span><span class="nav-tx">The Close</span></div>
+      <div class="nav-item" data-p="m6"><span class="nav-n">06</span><span class="nav-tx">The Machine</span></div>
+      <div class="nav-lbl">Operator Tool</div>
+      <div class="nav-item" data-p="t1"><span class="nav-n">▸</span><span class="nav-tx">Price Engine</span></div>
+      <div class="nav-lbl">The Vault</div>
+      <div class="nav-item" data-p="v1"><span class="nav-n">▸</span><span class="nav-tx">Swipe Files</span></div>
+    </nav>
+  </aside>
+
+  <nav class="mobile-nav" aria-label="Operator OS sections">
+    <button class="active" data-p="m1">01 Position</button>
+    <button data-p="m2">02 Build</button>
+    <button data-p="m3">03 Store</button>
+    <button data-p="m4">04 Signal</button>
+    <button data-p="m5">05 Close</button>
+    <button data-p="m6">06 Machine</button>
+    <button data-p="t1">Price</button>
+    <button data-p="v1">Vault</button>
+  </nav>
+
+  <div class="main">
+    <div class="topbar">
+      <div><div class="tb-title" id="pt">The Position</div><div class="tb-crumb" id="pc">OPERATOR OS / MANUAL / MODULE 01</div></div>
+    </div>
+    <div class="content">
+
+<!-- MODULE 1 -->
+<div class="page active" id="page-m1">
+  <div class="mod-hero">
+    <div class="mod-eyebrow">Module 01</div>
+    <div class="mod-h">The Position</div>
+    <div class="mod-sub">Before you build anything, you decide exactly what you sell and to whom. Get this wrong and everything after it is wasted effort.</div>
+  </div>
+  <h3>Why most people never start</h3>
+  <p>They have five ideas and commit to none. Every week a new one feels better than the last, so nothing gets finished. <strong>The problem isn't a shortage of ideas — it's the refusal to kill four of them.</strong></p>
+  <p>A position is a decision you stop revisiting. Until you make it, you're not building a business, you're collecting options.</p>
+  <div class="callout">
+    <div class="callout-t">The Rule</div>
+    <p>You can change your position later. You cannot change it weekly. Pick one, commit for 90 days, then reassess with real data instead of feelings.</p>
+  </div>
+  <h3>The four questions</h3>
+  <div class="step"><span class="step-n">1</span><div><div class="step-t">What can you do that others find hard?</div><div class="step-d">Not what you're world-class at — what you're simply further ahead on than the person you're selling to. That gap is enough.</div></div></div>
+  <div class="step"><span class="step-n">2</span><div><div class="step-t">Who specifically has this problem?</div><div class="step-d">"Anyone who wants to make money" is not an audience. "People who've built a product but can't sell it" is.</div></div></div>
+  <div class="step"><span class="step-n">3</span><div><div class="step-t">What do they already pay to solve it?</div><div class="step-d">If nobody spends money on this problem, it isn't painful enough. Existing spending is proof of demand.</div></div></div>
+  <div class="step"><span class="step-n">4</span><div><div class="step-t">Can you deliver it without permission?</div><div class="step-d">No licence, no team, no big budget. If you need any of those to start, pick something else for now.</div></div></div>
+  <h3>Narrow beats broad — always</h3>
+  <p>Broad positioning feels safer because it seems like a bigger market. In reality it makes you invisible. <strong>Nobody searches for "business help." They search for the exact thing they're stuck on.</strong></p>
+  <ul class="pts">
+    <li><strong>Broad:</strong> "I help people with business" → competes with everyone, chosen by no one</li>
+    <li><strong>Narrow:</strong> "I help operators price and sell their first digital product" → obvious, specific, chooseable</li>
+    <li><strong>The test:</strong> can someone describe what you do in one sentence after seeing your page once?</li>
+  </ul>
+  <div class="callout">
+    <div class="callout-t">Do This Now</div>
+    <p>Write one sentence: "I help [specific person] to [specific outcome] without [common obstacle]." That sentence is your position. Every piece of content, every DM, and every product decision flows from it. Test the sentence on five people in that market and rewrite any words they do not immediately understand.</p>
+  </div>
+</div>
+
+<!-- MODULE 2 -->
+<div class="page" id="page-m2">
+  <div class="mod-hero">
+    <div class="mod-eyebrow">Module 02</div>
+    <div class="mod-h">The Build</div>
+    <div class="mod-sub">How to make something premium fast — without a team, a budget, or six months of your life.</div>
+  </div>
+  <h3>Speed is the advantage</h3>
+  <p>Most people spend months building the perfect product and never sell it. <strong>The operator builds a strong version in days, sells it, then improves it with real buyer feedback.</strong> Perfection before revenue is procrastination wearing a smart outfit.</p>
+  <div class="callout">
+    <div class="callout-t">The Principle</div>
+    <p>Ship something genuinely good, not something half-finished. The difference between "fast" and "sloppy" is scope — a small thing done excellently beats a large thing done badly.</p>
+  </div>
+  <h3>What makes a product feel premium</h3>
+  <ul class="pts">
+    <li><strong>Depth over length.</strong> Ten pages that solve the problem completely beat a hundred pages of padding.</li>
+    <li><strong>Design signals value.</strong> The same information in a beautiful format is worth multiples of the same information in a plain doc.</li>
+    <li><strong>Specificity.</strong> Real numbers, worked examples, exact scripts. Vague advice feels cheap because it is.</li>
+    <li><strong>Usability.</strong> Templates and tools they can actually use beat theory they have to translate.</li>
+  </ul>
+  <h3>The build sequence</h3>
+  <div class="step"><span class="step-n">1</span><div><div class="step-t">Outline the transformation</div><div class="step-d">Where does the buyer start, where do they end up? Every section moves them one step along that path.</div></div></div>
+  <div class="step"><span class="step-n">2</span><div><div class="step-t">Write the spine first</div><div class="step-d">Core content only, no polish. Get the full argument down before you make anything look good.</div></div></div>
+  <div class="step"><span class="step-n">3</span><div><div class="step-t">Add the assets</div><div class="step-d">Templates, scripts, checklists — the things they'll actually use. This is what justifies premium pricing.</div></div></div>
+  <div class="step"><span class="step-n">4</span><div><div class="step-t">Design it last</div><div class="step-d">Never design an empty shell. Content first, then make it look like it costs what you're charging.</div></div></div>
+  <div class="callout">
+    <div class="callout-t">Do This Now</div>
+    <p>Write a one-page product brief containing the buyer, starting problem, final outcome, delivery format, included assets and build order. Then use the <strong>Price Engine</strong> to create a starting-price hypothesis before validating it with real buyers.</p>
+  </div>
+</div>
+
+<!-- MODULE 3 -->
+<div class="page" id="page-m3">
+  <div class="mod-hero">
+    <div class="mod-eyebrow">Module 03</div>
+    <div class="mod-h">The Store</div>
+    <div class="mod-sub">A simple sales setup you control, with clear payment, delivery and support responsibilities.</div>
+  </div>
+  <h3>Platforms take more than you think</h3>
+  <p>Marketplaces and payment providers have different fees, rules and levels of control. <strong>Choose deliberately and include the real processing, refund and support costs in your pricing.</strong></p>
+  <p>The alternative is simpler than people assume: a page that explains the offer, a way to take payment, and a way to deliver. That's a store.</p>
+  <h3>The minimum viable sales system</h3>
+  <div class="step"><span class="step-n">1</span><div><div class="step-t">A page that sells</div><div class="step-d">Problem, solution, what's inside, price, objections, call to action. One page, hosted free.</div></div></div>
+  <div class="step"><span class="step-n">2</span><div><div class="step-t">A secure way to get paid</div><div class="step-d">Use a reputable checkout or payment provider, disclose the price clearly, and account for processing fees and refunds.</div></div></div>
+  <div class="step"><span class="step-n">3</span><div><div class="step-t">A way to deliver</div><div class="step-d">A private link plus an access code. Sent manually at first — automation comes once volume justifies it.</div></div></div>
+  <div class="step"><span class="step-n">4</span><div><div class="step-t">Proof, added over time</div><div class="step-d">Every buyer is asked for one line of feedback. That line goes on the page. Proof compounds.</div></div></div>
+  <div class="callout">
+    <div class="callout-t">The Trap</div>
+    <p>Don't build sophisticated automation before you've made a sale. Manual delivery is completely fine for your first twenty customers — and it lets you talk to every single one, which is worth more than the time it saves.</p>
+  </div>
+  <h3>Pricing without flinching</h3>
+  <ul class="pts">
+    <li><strong>Price on outcome, not effort.</strong> How long it took you is irrelevant to what it's worth to them.</li>
+    <li><strong>Cheap creates doubt.</strong> Under-pricing signals low value and attracts the worst customers.</li>
+    <li><strong>Your price is a message.</strong> It tells the buyer what kind of thing this is before they read a word.</li>
+    <li><strong>Raise it for new buyers.</strong> Existing customers keep their price. New ones pay the new one.</li>
+  </ul>
+</div>
+
+<!-- MODULE 4 -->
+<div class="page" id="page-m4">
+  <div class="mod-hero">
+    <div class="mod-eyebrow">Module 04</div>
+    <div class="mod-h">The Signal</div>
+    <div class="mod-sub">Getting attention consistently — faceless, from zero, without needing anything to go viral.</div>
+  </div>
+  <h3>Attention is earned by consistency, not luck</h3>
+  <p>Virality is not a strategy because you can't control it. <strong>What you can control is whether you show up.</strong> The accounts that win aren't the luckiest — they're the ones that didn't stop.</p>
+  <div class="callout">
+    <div class="callout-t">The Reality</div>
+    <p>Almost everyone posts to near-silence at first. The people you see winning now went through exactly that. The difference is they kept going long enough for it to compound.</p>
+  </div>
+  <h3>The faceless formats that work</h3>
+  <ul class="pts">
+    <li><strong>Text on screen.</strong> A message over a simple background. Fast to make, easy to batch, endlessly repeatable.</li>
+    <li><strong>Screen recordings.</strong> Showing a process or result. Builds credibility because you're demonstrating, not claiming.</li>
+    <li><strong>Voiceover and footage.</strong> Carries personality without showing your face.</li>
+    <li><strong>Product-led.</strong> The work itself is the content. You stay behind the camera entirely.</li>
+  </ul>
+  <h3>The hook is the whole game</h3>
+  <p>You have about one second. <strong>The best content in the world dies behind a weak opening.</strong> Lead with the most interesting thing you've got — never warm up, never introduce.</p>
+  <ul class="pts">
+    <li><strong>Be specific.</strong> "How I made money" is ignorable. "The one message that got me my first client" is not.</li>
+    <li><strong>Open a loop.</strong> Make them need the answer. "The mistake that cost me everything" demands the rest.</li>
+    <li><strong>Take a position.</strong> Bland content gets scrolled past. A clear stance gets remembered.</li>
+  </ul>
+  <h3>A rhythm you can actually keep</h3>
+  <p>Posting once a day forever beats five times a day for a week then quitting. <strong>Choose the pace you can sustain on your worst week, not your best.</strong> Batch your content so posting doesn't depend on daily motivation.</p>
+</div>
+
+<!-- MODULE 5 -->
+<div class="page" id="page-m5">
+  <div class="mod-hero">
+    <div class="mod-eyebrow">Module 05</div>
+    <div class="mod-h">The Close</div>
+    <div class="mod-sub">Turning strangers into buyers through direct outreach — the fastest path to revenue that exists.</div>
+  </div>
+  <h3>Outreach is a service, not begging</h3>
+  <p>Most people avoid DMs because they feel like an imposition. That framing is the problem. <strong>If what you're offering genuinely helps them, reaching out is a service.</strong> The discomfort comes from selling something you don't believe in — or from not being clear on the value.</p>
+  <div class="callout">
+    <div class="callout-t">Why This Beats Content Early On</div>
+    <p>Content needs volume and time to work. Outreach works from message one. When you need revenue now, you don't post and wait — you talk to people directly.</p>
+  </div>
+  <h3>The four-part message</h3>
+  <div class="step"><span class="step-n">1</span><div><div class="step-t">Open with them, not you</div><div class="step-d">Reference something specific and real about their situation. Generic openers get ignored instantly.</div></div></div>
+  <div class="step"><span class="step-n">2</span><div><div class="step-t">Name the problem you solve</div><div class="step-d">One sentence. Show you understand what they're dealing with better than they expected.</div></div></div>
+  <div class="step"><span class="step-n">3</span><div><div class="step-t">Offer proof, not claims</div><div class="step-d">Show the work. A link, an example, a result. Proof does the persuading so you don't have to.</div></div></div>
+  <div class="step"><span class="step-n">4</span><div><div class="step-t">Make a small ask</div><div class="step-d">Not "buy now." Ask a question that starts a conversation. The sale comes from the conversation.</div></div></div>
+  <h3>The numbers to expect</h3>
+  <ul class="pts">
+    <li><strong>Messages to replies:</strong> a meaningful minority reply. Most won't. That's normal, not failure.</li>
+    <li><strong>Replies to conversations:</strong> roughly half go somewhere if your opener was relevant.</li>
+    <li><strong>Conversations to sales:</strong> a solid fraction convert when the offer fits.</li>
+    <li><strong>The lesson:</strong> volume solves everything. Rejection is arithmetic, not judgement.</li>
+  </ul>
+  <div class="callout">
+    <div class="callout-t">The Follow-Up Nobody Does</div>
+    <p>Most sales happen after the second or third message, and most people send exactly one. A short, non-pushy follow-up a few days later converts more than any clever opening line.</p>
+  </div>
+</div>
+
+<!-- MODULE 6 -->
+<div class="page" id="page-m6">
+  <div class="mod-hero">
+    <div class="mod-eyebrow">Module 06</div>
+    <div class="mod-h">The Machine</div>
+    <div class="mod-sub">Turning scattered effort into a system that runs without you restarting from scratch every week.</div>
+  </div>
+  <h3>The gap between busy and building</h3>
+  <p>Most people work hard in bursts and wonder why nothing compounds. <strong>A machine is what happens when the same actions get repeated on a schedule, whether you feel like it or not.</strong></p>
+  <h3>The weekly operating rhythm</h3>
+  <div class="step"><span class="step-n">1</span><div><div class="step-t">Batch your content once</div><div class="step-d">One session produces a week or two of posts. Posting stops competing with building.</div></div></div>
+  <div class="step"><span class="step-n">2</span><div><div class="step-t">Set an outreach number</div><div class="step-d">A fixed count of conversations started per day. Non-negotiable, tracked, done before anything else.</div></div></div>
+  <div class="step"><span class="step-n">3</span><div><div class="step-t">Improve the product with feedback</div><div class="step-d">Every buyer teaches you something. The product gets better and the price justification gets stronger.</div></div></div>
+  <div class="step"><span class="step-n">4</span><div><div class="step-t">Track only what matters</div><div class="step-d">Messages sent, conversations started, sales closed. Three numbers. Everything else is noise.</div></div></div>
+  <div class="callout">
+    <div class="callout-t">The Honest Warning</div>
+    <p>The most common failure isn't building a bad product — it's building a good one and never consistently selling it. Building feels productive and safe. Selling feels exposing. <strong>If you notice yourself starting a new build right before the selling step, that's the pattern. Name it and go sell instead.</strong></p>
+  </div>
+  <h3>What compounds</h3>
+  <ul class="pts">
+    <li><strong>Proof.</strong> Each customer becomes a testimonial that makes the next sale easier.</li>
+    <li><strong>Content.</strong> Every post stays out there working long after you publish it.</li>
+    <li><strong>Skill.</strong> The tenth sales conversation is dramatically better than the first.</li>
+    <li><strong>Assets.</strong> Products you've built keep selling with no additional work.</li>
+  </ul>
+</div>
+<!-- PRICE ENGINE -->
+<div class="page" id="page-t1">
+  <div class="mod-hero">
+    <div class="mod-eyebrow">Operator Tool · 01</div>
+    <div class="mod-h">Price Engine</div>
+    <div class="mod-sub">Turn product depth, buyer value and support level into a practical starting price. The result is an evidence-based estimate, not a promise.</div>
+  </div>
+  <div class="tool-box">
+    <div class="tool-hd">
+      <div class="tool-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21.4 8 14 2 9.4h7.6z" fill="#050506"/></svg></div>
+      <div><div class="tool-t">Estimate Your Price</div><div class="tool-d">Use realistic numbers — the calculator cannot validate demand for you</div></div>
+    </div>
+    <div class="tool-bd">
+      <div class="price-grid">
+        <div class="field">
+          <label class="field-l" for="pe_type">Product format</label>
+          <select class="field-i" id="pe_type">
+            <option value="29">Focused guide</option>
+            <option value="49">Template or swipe pack</option>
+            <option value="79" selected>Complete operating system</option>
+            <option value="149">System plus implementation support</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-l" for="pe_assets">Usable assets included</label>
+          <input class="field-i" id="pe_assets" type="number" min="1" max="30" value="8">
+        </div>
+        <div class="field">
+          <label class="field-l" for="pe_hours">Hours saved for the buyer</label>
+          <input class="field-i" id="pe_hours" type="number" min="0" max="500" value="10">
+        </div>
+        <div class="field">
+          <label class="field-l" for="pe_hourly">Buyer's hour value (£)</label>
+          <input class="field-i" id="pe_hourly" type="number" min="0" max="1000" value="20">
+        </div>
+        <div class="field">
+          <label class="field-l" for="pe_value">Other measurable value (£)</label>
+          <input class="field-i" id="pe_value" type="number" min="0" max="100000" value="0">
+        </div>
+        <div class="field">
+          <label class="field-l" for="pe_support">Support level</label>
+          <select class="field-i" id="pe_support">
+            <option value="1">Self-serve</option>
+            <option value="1.3">Async support</option>
+            <option value="1.85">Personalised implementation</option>
+          </select>
+        </div>
+      </div>
+      <button class="gen-btn" id="pe_btn" onclick="runPriceEngine()">Calculate Starting Price</button>
+      <div class="price-result" id="pe_result" aria-live="polite">
+        <div class="price-kicker">Recommended founding price</div>
+        <div class="price-main" id="pe_main">£0</div>
+        <div class="price-range" id="pe_range"></div>
+        <div class="price-breakdown">
+          <div class="price-stat"><b id="pe_floor">£0</b><span>Minimum floor</span></div>
+          <div class="price-stat"><b id="pe_standard">£0</b><span>Standard price</span></div>
+          <div class="price-stat"><b id="pe_premium">£0</b><span>Premium ceiling</span></div>
+        </div>
+        <div class="out-body" id="pe_reason"></div>
+        <button class="copy-btn" style="margin-top:14px" onclick="copyPrice(this)">Copy result</button>
+      </div>
+      <div class="tool-note">Use this as a starting hypothesis. Validate it with real buyers, competitor research and conversion data before increasing the price.</div>
+    </div>
+  </div>
+</div>
+
+<!-- VAULT -->
+<div class="page" id="page-v1">
+  <div class="mod-hero">
+    <div class="mod-eyebrow">The Vault</div>
+    <div class="mod-h">Swipe Files</div>
+    <div class="mod-sub">Copy, adapt, use. Fill the [BRACKETS] with your specifics.</div>
+  </div>
+
+  <h3>Hook Bank</h3>
+  <div class="swipe">
+    <div class="swipe-t">The Mistake Hooks</div>
+    <div class="swipe-c">"The biggest mistake people make with [TOPIC]..."<br>"I wasted [TIME] doing [THING] wrong. Here's what works."<br>"Stop doing [COMMON THING]. Do this instead."<br>"Nobody tells you this about [TOPIC]."</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">The Result Hooks</div>
+    <div class="swipe-c">"How I [SPECIFIC RESULT] in [TIMEFRAME]"<br>"[NUMBER] things that got me [RESULT]"<br>"This one change took me from [BEFORE] to [AFTER]"<br>"The exact steps I used to [OUTCOME]"</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">The Contrarian Hooks</div>
+    <div class="swipe-c">"Everyone says [COMMON BELIEF]. They're wrong."<br>"[POPULAR THING] is a waste of time. Here's why."<br>"You don't need [THING EVERYONE SAYS] to [OUTCOME]"<br>"The advice everyone gives about [TOPIC] is backwards."</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">The How-To Hooks</div>
+    <div class="swipe-c">"How to [OUTCOME] without [COMMON PAIN]"<br>"The fastest way to [RESULT] from zero"<br>"[NUMBER] steps to [OUTCOME] — no [OBSTACLE] needed"<br>"If I started [THING] again, this is what I'd do"</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">The Demonstration Hooks</div>
+    <div class="swipe-c">"Watch me build [THING] from a blank screen"<br>"Here's what [PROCESS] actually looks like behind the scenes"<br>"I gave myself [TIME] to fix [PROBLEM]"<br>"From this mess to this system — here's every step"</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">The Proof Hooks</div>
+    <div class="swipe-c">"The before-and-after nobody sees when [OUTCOME] happens"<br>"I tested [METHOD] for [TIMEFRAME]. Here are the honest results"<br>"This is the exact screen I use to track [METRIC]"<br>"No theory — this is the finished [ASSET] working live"</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">The Curiosity Hooks</div>
+    <div class="swipe-c">"There's one part of [PROCESS] almost everyone skips"<br>"This looks simple until you notice [DETAIL]"<br>"I found out why [COMMON ATTEMPT] keeps failing"<br>"The answer wasn't more [EXPECTED THING]. It was this"</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">The Problem Hooks</div>
+    <div class="swipe-c">"If your [THING] keeps [BAD RESULT], check this first"<br>"You're not short on ideas — you're missing [SYSTEM]"<br>"The hidden reason [AUDIENCE] keeps losing [RESOURCE]"<br>"Before you buy another [SOLUTION], fix this"</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">The Identity Hooks</div>
+    <div class="swipe-c">"For the person building quietly while everyone else talks"<br>"If you're the one doing everything yourself, this is for you"<br>"You don't need to become an influencer to sell [THING]"<br>"Small operators need better systems, not bigger teams"</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">The Breakdown Hooks</div>
+    <div class="swipe-c">"Breaking down the [THING] I would actually pay for"<br>"What you really get inside a £[PRICE] [PRODUCT]"<br>"I rebuilt [THING] into four parts — here's why"<br>"The anatomy of a [RESULT]-focused [PRODUCT]"</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">The Decision Hooks</div>
+    <div class="swipe-c">"I stopped building five ideas and chose this one"<br>"The decision that removed half my workload"<br>"What I cut from [PRODUCT] to make it better"<br>"Build this first. Everything else can wait"</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">The Direct Offer Hooks</div>
+    <div class="swipe-c">"I built [PRODUCT] for [AUDIENCE] who need [OUTCOME]"<br>"If [PROBLEM] is costing you [RESOURCE], this fixes the workflow"<br>"Inside [PRODUCT]: [ASSET 1], [ASSET 2], and [ASSET 3]"<br>"[PRODUCT] is live — here's exactly who should and shouldn't buy it"</div>
+  </div>
+
+  <h3>Outreach Scripts</h3>
+  <div class="swipe">
+    <div class="swipe-t">First Message — Proof First</div>
+    <div class="swipe-c">Hey [NAME] — saw [SPECIFIC THING ABOUT THEM].<br><br>I [WHAT YOU DO] for [WHO YOU HELP]. Built this recently: [LINK/EXAMPLE]<br><br>Noticed [SPECIFIC OBSERVATION ABOUT THEIR SITUATION] — is that something you're working on at the moment?</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">First Message — Question Opener</div>
+    <div class="swipe-c">Hey [NAME], quick question — how are you currently handling [SPECIFIC PROBLEM]?<br><br>Ask because I work with [SIMILAR PEOPLE] on exactly that, and it's usually the thing costing them the most without them realising.</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">Follow-Up (3 days later)</div>
+    <div class="swipe-c">Hey [NAME] — know things get buried, just floating this back up.<br><br>If it's not a priority right now that's completely fine, just let me know and I'll leave it.</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">Follow-Up (final, 7 days)</div>
+    <div class="swipe-c">Last one from me on this [NAME] — I'll assume the timing's not right.<br><br>If it changes, you know where I am. Either way, good luck with [THEIR THING].</div>
+  </div>
+
+  <h3>Objection Handlers</h3>
+  <div class="swipe">
+    <div class="swipe-t">"It's too expensive"</div>
+    <div class="swipe-c">Completely fair. Worth asking though — what's it currently costing you to leave [PROBLEM] as it is?<br><br>Most people find the answer is more than the price, which is usually the point at which it makes sense.</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">"I need to think about it"</div>
+    <div class="swipe-c">Of course — makes sense to be sure.<br><br>Just so I can help properly: is it the price, the timing, or are you not convinced it'll work for your situation? Happy to be straight with you either way.</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">"I could do this myself"</div>
+    <div class="swipe-c">You absolutely could — it's not secret information.<br><br>The question is whether you want to spend [TIME] figuring it out, or start from a system that already works. Both are valid, depends what your time's worth right now.</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">"Does it actually work?"</div>
+    <div class="swipe-c">Honest answer: it works if you run it. It's not magic — it's a system, and systems need someone to execute them.<br><br>What I can show you is [PROOF/EXAMPLE]. What I can't do is do it for you.</div>
+  </div>
+
+  <h3>Store &amp; Launch Copy</h3>
+  <div class="swipe">
+    <div class="swipe-t">Product Description Frame</div>
+    <div class="swipe-c">[PRODUCT NAME] — [ONE LINE OUTCOME]<br><br>For [WHO] who [SITUATION].<br><br>Inside: [KEY THING 1], [KEY THING 2], [KEY THING 3].<br><br>[FORMAT/LENGTH]. Instant delivery.</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">Founding Price Launch</div>
+    <div class="swipe-c">[PRODUCT] is live.<br><br>Founding price: [LOW PRICE] for the first [NUMBER] people. After that it goes to [FULL PRICE] permanently.<br><br>Not a fake countdown — the price genuinely moves once those are gone.<br><br>[LINK]</div>
+  </div>
+  <div class="swipe">
+    <div class="swipe-t">Testimonial Request (send day of purchase)</div>
+    <div class="swipe-c">Hey [NAME] — thanks for picking this up.<br><br>Quick favour: once you've been through it, could you send me one line on what you found most useful? Helps me improve it and it means a lot at this stage.</div>
+  </div>
+</div>
+
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+
+/* NAV */
+const T={
+ m1:['The Position','OPERATOR OS / MANUAL / MODULE 01'],
+ m2:['The Build','OPERATOR OS / MANUAL / MODULE 02'],
+ m3:['The Store','OPERATOR OS / MANUAL / MODULE 03'],
+ m4:['The Signal','OPERATOR OS / MANUAL / MODULE 04'],
+ m5:['The Close','OPERATOR OS / MANUAL / MODULE 05'],
+ m6:['The Machine','OPERATOR OS / MANUAL / MODULE 06'],
+ t1:['Price Engine','OPERATOR OS / OPERATOR TOOL / PRICE ENGINE'],
+ v1:['Swipe Files','OPERATOR OS / THE VAULT']
+};
+function goPage(p){
+  document.querySelectorAll('.nav-item').forEach(i=>i.classList.toggle('active',i.dataset.p===p));
+  document.querySelectorAll('.mobile-nav button').forEach(i=>i.classList.toggle('active',i.dataset.p===p));
+  document.querySelectorAll('.page').forEach(pg=>pg.classList.remove('active'));
+  const el=document.getElementById('page-'+p);
+  if(!el||!T[p])return;
+  el.classList.add('active');
+  document.getElementById('pt').textContent=T[p][0];
+  document.getElementById('pc').textContent=T[p][1];
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('.nav-item').forEach(i=>i.addEventListener('click',()=>goPage(i.dataset.p)));
+document.querySelectorAll('.mobile-nav button').forEach(i=>i.addEventListener('click',()=>goPage(i.dataset.p)));
+
+function clampNumber(id,min,max,fallback){
+  const value=Number(document.getElementById(id).value);
+  if(!Number.isFinite(value))return fallback;
+  return Math.min(max,Math.max(min,value));
+}
+
+function smartRound(value){
+  const steps=[19,29,39,49,59,69,79,89,97,119,129,149,179,197,229,249,297,349,397,449,497,597,697,797,897,997];
+  return steps.find(step=>step>=value)||Math.ceil(value/100)*100-3;
+}
+
+function runPriceEngine(){
+  const base=Number(document.getElementById('pe_type').value)||29;
+  const assets=clampNumber('pe_assets',1,30,1);
+  const hours=clampNumber('pe_hours',0,500,0);
+  const hourly=clampNumber('pe_hourly',0,1000,0);
+  const extra=clampNumber('pe_value',0,100000,0);
+  const support=Number(document.getElementById('pe_support').value)||1;
+  const buyerValue=(hours*hourly)+extra;
+  const depthMultiplier=1+Math.min(assets,15)*0.035;
+  const costBased=base*depthMultiplier*support;
+  const valueBased=buyerValue*0.12;
+  const standard=smartRound(Math.max(costBased,valueBased,19));
+  const founding=smartRound(Math.max(19,standard*0.72));
+  const floor=smartRound(Math.max(19,costBased*0.65));
+  const premium=smartRound(Math.max(standard*1.45,costBased*1.5));
+  document.getElementById('pe_main').textContent='£'+founding;
+  document.getElementById('pe_range').textContent='Test a founding offer at £'+founding+', then move toward £'+standard+' once buyers and proof exist.';
+  document.getElementById('pe_floor').textContent='£'+floor;
+  document.getElementById('pe_standard').textContent='£'+standard;
+  document.getElementById('pe_premium').textContent='£'+premium;
+  document.getElementById('pe_reason').textContent='Estimate based on '+assets+' usable asset'+(assets===1?'':'s')+', approximately '+hours+' buyer hours saved, £'+buyerValue.toFixed(0)+' of stated buyer value, and the selected support level. Do not use the premium figure unless the delivery genuinely includes more value or implementation.';
+  document.getElementById('pe_result').classList.add('show');
+}
+
+function copyText(text,button){
+  const done=()=>{const old=button.textContent;button.textContent='Copied';setTimeout(()=>{button.textContent=old;},1400);};
+  if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done).catch(()=>{});return;}
+  const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();
+  try{document.execCommand('copy');done();}finally{area.remove();}
+}
+
+function copyPrice(button){
+  const text=[document.getElementById('pe_main').previousElementSibling.textContent+': '+document.getElementById('pe_main').textContent,document.getElementById('pe_range').textContent,document.getElementById('pe_reason').textContent].join('\n');
+  copyText(text,button);
+}
+
+document.querySelectorAll('.swipe').forEach(card=>{
+  const title=card.querySelector('.swipe-t');
+  const content=card.querySelector('.swipe-c');
+  if(!title||!content)return;
+  const button=document.createElement('button');button.className='swipe-copy';button.type='button';button.textContent='Copy';
+  button.addEventListener('click',()=>copyText(content.innerText,button));title.appendChild(button);
+});
+</script>
+</body>
+</html>

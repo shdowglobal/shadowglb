@@ -12,6 +12,18 @@ const {
 } = require('../api/_lib/store.js');
 const { getMediaBucket, getSiteUrl, isAdminEmailAllowed, parseAdminEmails } = require('../api/_lib/env.js');
 const { verifyStripeSignature } = require('../api/_lib/stripe.js');
+const { assertProtectedProductRoute, deliveryUrlForPaidSession, isProtectedDeliveryUrl } = require('../api/_lib/delivery.js');
+
+test('protected product links gain a paid-session token and reject route mismatches', () => {
+  const configured = 'https://www.shadowglb.com/api/download/operator-os-v1';
+  const unlocked = deliveryUrlForPaidSession(configured, 'cs_test_buyer123');
+  assert.equal(unlocked, 'https://www.shadowglb.com/api/download/operator-os-v1?session_id=cs_test_buyer123');
+  assert.equal(isProtectedDeliveryUrl(configured), true);
+  assert.equal(isProtectedDeliveryUrl('https://downloads.example.com/operator-os.html'), false);
+  assert.equal(deliveryUrlForPaidSession('https://downloads.example.com/operator-os.html', 'cs_test_buyer123'), 'https://downloads.example.com/operator-os.html');
+  assert.doesNotThrow(() => assertProtectedProductRoute(configured, '/api/download/operator-os-v1'));
+  assert.throws(() => assertProtectedProductRoute(configured, '/api/download/another-product'), /does not unlock/i);
+});
 
 test('public store sanitization exposes display data but never checkout or delivery fields', () => {
   const result = sanitizePublicStore({
