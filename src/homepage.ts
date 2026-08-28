@@ -1,12 +1,15 @@
-import { BUILD_STEPS, CAPABILITIES, SERVICE_OFFERS, type ServiceOffer } from './services.js';
+import type { MediaItem, Product } from './types.js';
 
 interface HomeStore {
   contactEmail: string;
   contactPhone: string;
+  telegramUrl: string;
   logo: string;
   announcement: string;
-  offers: ServiceOffer[];
-  showcase: ShowcaseItem[];
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  products: Product[];
 }
 
 export interface ShowcaseItem {
@@ -81,36 +84,14 @@ export function parseShowcase(value: unknown): ShowcaseItem[] {
 const FALLBACK_STORE: HomeStore = {
   contactEmail: 'moshadow154@gmail.com',
   contactPhone: '',
+  telegramUrl: '',
   logo: 'SHADOW|GLB',
   announcement: '',
-  offers: SERVICE_OFFERS,
-  showcase: [],
+  eyebrow: '[ SELF-SERVE DIGITAL OPERATIONS ]',
+  title: 'Built to buy.\nBuilt to move.',
+  subtitle: 'Operator kits, field files and practical systems. Secure checkout. Immediate access. No call required.',
+  products: [],
 };
-
-// Admin-editable offers. Each line in the `services` content field:
-//   Title | Price | Timeline | Description | Feature; Feature; Feature
-// Anything missing falls back to the built-in SERVICE_OFFERS above.
-export function parseOffers(value: unknown): ServiceOffer[] {
-  if (!Array.isArray(value)) return SERVICE_OFFERS;
-  const parsed = value.flatMap((line, index) => {
-    if (typeof line !== 'string' || !line.trim()) return [];
-    const [title, price, timeline, description, features] = line.split('|').map((part) => part.trim());
-    if (!title) return [];
-    const base = SERVICE_OFFERS[index] || SERVICE_OFFERS[0];
-    return [{
-      id: `offer-${index + 1}`,
-      code: base?.code || `0${index + 1} / SERVICE`,
-      title,
-      audience: base?.audience || '',
-      price: price || base?.price || '',
-      timeline: timeline || base?.timeline || '',
-      description: description || base?.description || '',
-      features: features ? features.split(';').map((item) => item.trim()).filter(Boolean) : (base?.features || []),
-      featured: index === 1,
-    } as ServiceOffer];
-  });
-  return parsed.length ? parsed : SERVICE_OFFERS;
-}
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -125,6 +106,9 @@ function readStore(payload: unknown): HomeStore {
   const outer = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
   const source = outer.store && typeof outer.store === 'object' ? outer.store as Record<string, unknown> : outer;
   const content = source.content && typeof source.content === 'object' ? source.content as Record<string, unknown> : {};
+  const products = Array.isArray(source.products)
+    ? source.products.filter((item): item is Product => Boolean(item && typeof item === 'object' && 'id' in item && 'name' in item))
+    : [];
   const email = typeof content.contactEmail === 'string' && content.contactEmail.includes('@')
     ? content.contactEmail
     : typeof source.contactEmail === 'string' && source.contactEmail.includes('@')
@@ -133,10 +117,13 @@ function readStore(payload: unknown): HomeStore {
   return {
     contactEmail: email,
     contactPhone: typeof content.contactPhone === 'string' ? content.contactPhone.trim() : '',
+    telegramUrl: normalizeTelegramUrl(content.telegramUrl) || telegramFromSocials(content.socials),
     logo: typeof content.logo === 'string' && content.logo.trim() ? content.logo.trim() : FALLBACK_STORE.logo,
     announcement: typeof content.announce === 'string' ? content.announce.trim() : '',
-    offers: parseOffers(content.services),
-    showcase: parseShowcase(content.showcase),
+    eyebrow: typeof content.landingEyebrow === 'string' && content.landingEyebrow.trim() ? content.landingEyebrow.trim() : FALLBACK_STORE.eyebrow,
+    title: typeof content.landingTitle === 'string' && content.landingTitle.trim() ? content.landingTitle.trim() : FALLBACK_STORE.title,
+    subtitle: typeof content.landingSub === 'string' && content.landingSub.trim() ? content.landingSub.trim() : FALLBACK_STORE.subtitle,
+    products,
   };
 }
 
@@ -144,12 +131,6 @@ function cleanLogo(value: string): [string, string] {
   const plain = value.replace(/<\/?span>/gi, '|').replace(/<[^>]+>/g, '').replace(/\|+/g, '|');
   const [lead = 'SHADOW', tail = 'GLB'] = plain.split('|');
   return [lead || 'SHADOW', tail || 'GLB'];
-}
-
-interface InquiryAction {
-  href: string;
-  label: string;
-  external: boolean;
 }
 
 export function emailInquiryHref(email: string, subject: string, message: string): string {
@@ -166,182 +147,117 @@ export function whatsappInquiryHref(phone: string, message: string): string {
   return number ? `https://wa.me/${number}?text=${encodeURIComponent(message)}` : '';
 }
 
-function inquiryActions(offer: ServiceOffer | null, store: HomeStore): InquiryAction[] {
-  const subject = offer ? `${offer.title} enquiry` : 'ShadowGLB build enquiry';
-  const message = offer
-    ? `Hi ShadowGLB, I am interested in the ${offer.title}. My business/project is:`
-    : 'Hi ShadowGLB, I want to discuss a dashboard or e-commerce build. My business/project is:';
-  const actions: InquiryAction[] = [{
-    href: emailInquiryHref(store.contactEmail, subject, message),
-    label: 'Start by email',
-    external: false,
-  }];
-  const whatsapp = whatsappInquiryHref(store.contactPhone, message);
-  if (whatsapp) {
-    actions.push({
-      href: whatsapp,
-      label: 'WhatsApp',
-      external: true,
-    });
+export function normalizeTelegramUrl(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  try {
+    const url = new URL(value.trim());
+    const host = url.hostname.toLowerCase();
+    return url.protocol === 'https:' && ['t.me', 'telegram.me', 'www.telegram.me'].includes(host) ? url.toString() : '';
+  } catch (_error) {
+    return '';
   }
-  return actions;
 }
 
-function inquiryLinks(offer: ServiceOffer | null, store: HomeStore, emailClass: string, whatsappClass: string): string {
-  return inquiryActions(offer, store).map((link, index) => `<a class="${index === 0 ? emailClass : whatsappClass}" href="${escapeHtml(link.href)}"${link.external ? ' target="_blank" rel="noopener noreferrer"' : ''}><span>${escapeHtml(link.label)}</span><b aria-hidden="true">&nearr;</b></a>`).join('');
+function telegramFromSocials(value: unknown): string {
+  if (!Array.isArray(value)) return '';
+  for (const entry of value) {
+    if (typeof entry !== 'string') continue;
+    const [label, url] = entry.split('|').map((part) => part.trim());
+    if (/telegram|shadow\/?intel/i.test(label || '')) {
+      const safe = normalizeTelegramUrl(url);
+      if (safe) return safe;
+    }
+  }
+  return '';
 }
 
-function packageCard(offer: ServiceOffer, store: HomeStore, index: number): string {
-  return `<article class="service-package reveal${offer.featured ? ' service-package--featured' : ''}" style="--delay:${index * 90}ms" id="${escapeHtml(offer.id)}">
-    <div class="package-topline"><span>${escapeHtml(offer.code)}</span>${offer.featured ? '<b>Most complete</b>' : ''}</div>
-    <div class="package-heading">
-      <div><h3>${escapeHtml(offer.title)}</h3><p>${escapeHtml(offer.audience)}</p></div>
-      <strong>${escapeHtml(offer.price)}</strong>
-    </div>
-    <p class="package-description">${escapeHtml(offer.description)}</p>
-    <ul>${offer.features.map((feature) => `<li><i aria-hidden="true">&#10003;</i><span>${escapeHtml(feature)}</span></li>`).join('')}</ul>
-    <small>${escapeHtml(offer.timeline)} &middot; Final quote confirmed after scope</small>
-    <div class="service-package-actions">${inquiryLinks(offer, store, 'service-cta service-cta--wide', 'service-cta service-cta--wide service-cta--whatsapp')}</div>
+function productPath(product: Product): string {
+  return `/products/${encodeURIComponent(String(product.id))}/`;
+}
+
+function productMedia(product: Product | undefined): MediaItem | undefined {
+  if (!product) return undefined;
+  const media = Array.isArray(product.media)
+    ? product.media.find((item) => item && typeof item.url === 'string' && item.url.startsWith('https://'))
+    : undefined;
+  if (media) return media;
+  return product.imageUrl?.startsWith('https://') ? { url: product.imageUrl, type: 'image', alt: product.name } : undefined;
+}
+
+function formatMoney(value: string): string {
+  const amount = Number.parseFloat(value);
+  if (!Number.isFinite(amount) || amount <= 0) return 'FREE';
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: amount % 1 ? 2 : 0 }).format(amount);
+}
+
+function featuredProduct(store: HomeStore): Product | undefined {
+  return store.products.find((product) => product.featured === true)
+    || store.products.find((product) => !/^(file|system|template)$/i.test(String(product.ptype || '')))
+    || store.products[0];
+}
+
+function telegramAction(store: HomeStore, className: string, label: string): string {
+  return store.telegramUrl
+    ? `<a class="${className}" href="${escapeHtml(store.telegramUrl)}" target="_blank" rel="noopener noreferrer"><span>${escapeHtml(label)}</span><b>&nearr;</b></a>`
+    : `<span class="${className} ops-button--muted" aria-label="Telegram channel link will be added shortly"><span>Channel link pending</span><b>...</b></span>`;
+}
+
+function contactActions(store: HomeStore): string {
+  const message = 'Hi ShadowGLB, I have a question about a product or order:';
+  const email = emailInquiryHref(store.contactEmail, 'ShadowGLB product enquiry', message);
+  const whatsapp = whatsappInquiryHref(store.contactPhone, message);
+  return `<a class="ops-contact-link" href="${escapeHtml(email)}"><small>Email</small><span>${escapeHtml(store.contactEmail)}</span><b>&nearr;</b></a>${whatsapp ? `<a class="ops-contact-link" href="${escapeHtml(whatsapp)}" target="_blank" rel="noopener noreferrer"><small>Support</small><span>WhatsApp</span><b>&nearr;</b></a>` : ''}`;
+}
+
+function featuredMarkup(store: HomeStore): string {
+  const product = featuredProduct(store);
+  if (!product) return `<article class="ops-feature ops-feature--empty reveal"><div><span>FLAGSHIP // LOADING BAY</span><h2>The next release is being prepared.</h2><p>Enter the store to view every live kit, file and system.</p></div><a class="ops-button ops-button--primary" href="/store/"><span>Enter the store</span><b>&nearr;</b></a></article>`;
+  const media = productMedia(product);
+  return `<article class="ops-feature reveal">
+    <a class="ops-feature-media" href="${productPath(product)}" aria-label="View ${escapeHtml(product.name)}"><span>FLAGSHIP // 001</span>${media?.type === 'video' ? `<video src="${escapeHtml(media.url)}" muted loop autoplay playsinline preload="metadata"></video>` : media?.url ? `<img src="${escapeHtml(media.url)}" alt="${escapeHtml(media.alt || product.name)}" loading="eager">` : `<div class="ops-product-mark"><small>SHADOWGLB</small><b>${escapeHtml(product.name.slice(0, 2).toUpperCase())}</b></div>`}</a>
+    <div class="ops-feature-copy"><div class="ops-feature-top"><span>${escapeHtml(product.ptype || product.category || 'Operator kit')}</span><strong>${formatMoney(product.price)}</strong></div><h2>${escapeHtml(product.name)}</h2><p>${escapeHtml(product.desc || 'A practical digital resource built for immediate use.')}</p>${product.includes?.length ? `<ul>${product.includes.slice(0, 4).map((item) => `<li><i>&check;</i><span>${escapeHtml(item)}</span></li>`).join('')}</ul>` : ''}<div class="ops-feature-actions"><a class="ops-button ops-button--primary" href="${productPath(product)}"><span>View the drop</span><b>&nearr;</b></a><a class="ops-text-link" href="/store/">Browse everything <b>&rarr;</b></a></div></div>
   </article>`;
 }
 
 function template(store: HomeStore): string {
   const [logoLead, logoTail] = cleanLogo(store.logo);
-  return `${store.announcement ? `<div class="service-announce" role="status"><span>${escapeHtml(store.announcement)}</span><button type="button" aria-label="Dismiss announcement">&times;</button></div>` : ''}
-    <header class="service-nav">
-      <a class="service-brand" href="/" aria-label="ShadowGLB services"><span>${escapeHtml(logoLead)}</span><b>${escapeHtml(logoTail)}</b></a>
-      <nav aria-label="Primary navigation">
-        <a class="is-active" href="/">Services</a>
-        <a href="/store/">Operator Kits</a>
-        <a href="/systems/">Systems &amp; Templates</a>
-        <a href="/files/">The Files</a>
-        <a href="/wall/">The Wall</a>
-        <a href="/contact/">Contact</a>
-      </nav>
-      <button class="service-menu-button" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="service-mobile-menu"><span></span><span></span></button>
-    </header>
-    <div class="service-mobile-menu" id="service-mobile-menu" aria-hidden="true">
-      <div><span>Navigation</span><button type="button" aria-label="Close navigation">&times;</button></div>
-      <nav aria-label="Mobile navigation">
-        <a href="/"><small>01</small><span>Services</span></a>
-        <a href="/store/"><small>02</small><span>Operator Kits</span></a>
-        <a href="/systems/"><small>03</small><span>Systems &amp; Templates</span></a>
-        <a href="/files/"><small>04</small><span>The Files</span></a>
-        <a href="/wall/"><small>05</small><span>The Wall</span></a>
-        <a href="/contact/"><small>06</small><span>Contact</span></a>
-      </nav>
-      <p>SHADOWGLB // BUILD DIVISION</p>
-    </div>
+  const stages = ['DISCOVER', 'TRUST', 'BUY', 'RECEIVE', 'STAY', 'DISCOVER', 'TRUST', 'BUY', 'RECEIVE', 'STAY'];
+  return `${store.announcement ? `<div class="ops-announce" role="status"><span>${escapeHtml(store.announcement)}</span><button type="button" aria-label="Dismiss announcement">&times;</button></div>` : ''}
+    <header class="ops-nav"><a class="ops-brand" href="/" aria-label="ShadowGLB home"><span>${escapeHtml(logoLead)}</span><b>${escapeHtml(logoTail)}</b></a><nav aria-label="Primary navigation"><a class="is-active" href="/">Home</a><a href="/store/">Operator Kits</a><a href="/systems/">Systems</a><a href="/files/">The Files</a><a href="/wall/">The Wall</a><a href="#intel">Free Intel</a></nav><div class="ops-nav-actions">${store.telegramUrl ? `<a href="${escapeHtml(store.telegramUrl)}" target="_blank" rel="noopener noreferrer">Join Intel <b>&nearr;</b></a>` : '<a href="/store/">Enter store <b>&nearr;</b></a>'}<button class="ops-menu-button" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="ops-mobile-menu"><span></span><span></span></button></div></header>
+    <div class="ops-mobile-menu" id="ops-mobile-menu" aria-hidden="true"><div><span>Navigation</span><button type="button" aria-label="Close navigation">&times;</button></div><nav aria-label="Mobile navigation"><a href="/"><small>01</small><span>Home</span></a><a href="/store/"><small>02</small><span>Operator Kits</span></a><a href="/systems/"><small>03</small><span>Systems</span></a><a href="/files/"><small>04</small><span>The Files</span></a><a href="/wall/"><small>05</small><span>The Wall</span></a><a href="#intel"><small>06</small><span>Free Intel</span></a><a href="/contact/"><small>07</small><span>Contact</span></a></nav><p>SHADOWGLB // SELF-SERVE NETWORK</p></div>
     <main id="main-content">
-      <section class="service-hero">
-        <div class="service-hero-grid" aria-hidden="true"></div>
-        <div class="service-orbit" aria-hidden="true"><span></span><span></span><i>SG</i></div>
-        <div class="service-hero-copy">
-          <span class="service-kicker">[ 01 / DIGITAL BUILD DIVISION ]</span>
-          <h1>Systems built<br>for the <em>next move.</em></h1>
-          <p>AI dashboards and e-commerce stores for operators who need clarity, control, and conversion&mdash;not another unfinished template.</p>
-          <div class="service-hero-actions">${inquiryLinks(null, store, 'service-cta service-cta--primary', 'service-cta service-cta--whatsapp')}<a class="service-cta service-cta--ghost" href="#packages"><span>View the builds</span><b aria-hidden="true">&darr;</b></a></div>
-          <div class="service-proof"><span><b>02</b> core services</span><span><b>01</b> accountable builder</span><span><b>100%</b> responsive</span></div>
-        </div>
-      </section>
-
-      <section class="service-section service-capabilities" aria-labelledby="capabilities-title">
-        <div class="service-section-heading reveal"><span>[ 02 / CAPABILITIES ]</span><div><h2 id="capabilities-title">Built as an operation.<br>Not decoration.</h2><p>Every screen has a job. Every integration has a reason. The result is something your business can actually use.</p></div></div>
-        <div class="capability-grid">${CAPABILITIES.map((item, index) => `<article class="capability-card reveal" style="--delay:${index * 60}ms"><span>${escapeHtml(item.code)}</span><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.description)}</p></article>`).join('')}</div>
-      </section>
-
-      <section class="service-section service-packages" id="packages" aria-labelledby="packages-title">
-        <div class="service-section-heading reveal"><span>[ 03 / WAYS TO BUILD ]</span><div><h2 id="packages-title">Two focused offers.<br>One clear outcome.</h2><p>Choose the build closest to the problem. Scope is confirmed before money changes hands, so there are no fake buy buttons or surprise extras.</p></div></div>
-        <div class="package-grid">${store.offers.map((offer, index) => packageCard(offer, store, index)).join('')}</div>
-      </section>
-
-      ${store.showcase.length ? `<section class="service-section service-work" aria-labelledby="work-title">
-        <div class="service-section-heading reveal"><span>[ 04 / SELECTED WORK ]</span><div><h2 id="work-title">Built and shipped.</h2><p>Real builds, live and running. Not mockups.</p></div><div class="rail-controls"><button type="button" data-work-move="-1" aria-label="Previous work">&larr;</button><button type="button" data-work-move="1" aria-label="Next work">&rarr;</button></div></div>
-        <div class="work-rail">${store.showcase.map((item, index) => `<article class="work-card${index === 0 ? ' is-active' : ''}">
-          <div class="work-media"><span class="work-index">FILE // ${String(index + 1).padStart(2, '0')}</span>${item.url ? (item.isVideo
-            ? `<video src="${escapeHtml(item.url)}" muted loop autoplay playsinline preload="metadata"></video>`
-            : `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.title)}" loading="lazy">`) : item.link
-              ? `<iframe src="${escapeHtml(item.link)}" title="${escapeHtml(item.title)} website preview" loading="lazy" sandbox="allow-scripts" referrerpolicy="no-referrer" tabindex="-1"></iframe>`
-              : `<b>${escapeHtml(item.title.slice(0, 2).toUpperCase())}</b>`}${item.link ? `<a class="work-media-link" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" aria-label="View ${escapeHtml(item.title)} live"></a>` : ''}</div>
-          <div class="work-body"><h3>${escapeHtml(item.title)}</h3>${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}${item.link ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">View live <b aria-hidden="true">&nearr;</b></a>` : ''}</div>
-        </article>`).join('')}</div>
-        ${store.showcase.length > 1 ? `<div class="work-dots">${store.showcase.map((_, index) => `<button type="button" class="${index === 0 ? 'is-active' : ''}" aria-label="Show work ${index + 1}"></button>`).join('')}</div>` : ''}
-      </section>` : ''}
-
-      <section class="service-section service-process" aria-labelledby="process-title">
-        <div class="service-section-heading reveal"><span>[ 04 / PROCESS ]</span><div><h2 id="process-title">From brief to live.</h2><p>A direct process designed to keep momentum without gambling with existing accounts, data, or production systems.</p></div></div>
-        <ol>${BUILD_STEPS.map(([number, title, copy], index) => `<li class="reveal" style="--delay:${index * 60}ms"><span>${number}</span><div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(copy)}</p></div></li>`).join('')}</ol>
-      </section>
-
-      <section class="service-final reveal">
-        <span>[ READY WHEN YOU ARE ]</span><h2>Bring the problem.<br>We build the system.</h2><p>Send the goal, the current setup, and one or two examples. You will get a clear scope and price before the build starts.</p><div class="service-final-actions">${inquiryLinks(null, store, 'service-cta service-cta--primary', 'service-cta service-cta--whatsapp')}</div>
-      </section>
+      <section class="ops-hero"><div class="ops-grid" aria-hidden="true"></div><div class="ops-signal" aria-hidden="true"><i></i><i></i><span>SG</span></div><div class="ops-hero-copy reveal"><span class="ops-kicker">${escapeHtml(store.eyebrow)}</span><h1>${escapeHtml(store.title).replace(/\n/g, '<br>')}</h1><p>${escapeHtml(store.subtitle)}</p><div class="ops-hero-actions"><a class="ops-button ops-button--primary" href="/store/"><span>Enter the store</span><b>&nearr;</b></a><a class="ops-button ops-button--ghost" href="#flagship"><span>View flagship</span><b>&darr;</b></a></div></div><div class="ops-hero-status"><span><i></i> STORE ONLINE</span><span>STRIPE SECURED</span><span>AUTO DELIVERY</span></div></section>
+      <div class="ops-ticker" aria-label="ShadowGLB buying journey"><div>${stages.map((item) => `<span>${item}<i>+</i></span>`).join('')}</div></div>
+      <section class="ops-section" id="flagship" aria-labelledby="flagship-title"><div class="ops-heading reveal"><span>[ 01 / FEATURED DROP ]</span><div><h2 id="flagship-title">Start with the strongest asset.</h2><p>One clear product. One secure payment. Immediate access after verification.</p></div></div>${featuredMarkup(store)}</section>
+      <section class="ops-section" aria-labelledby="archive-title"><div class="ops-heading reveal"><span>[ 02 / THE ARCHIVE ]</span><div><h2 id="archive-title">Choose your entry point.</h2><p>Everything has a purpose. No filler, fake scarcity or call required.</p></div></div><div class="ops-archive-grid">
+        <a class="ops-archive-card reveal" href="/store/"><small>01 // KITS</small><h3>Operator Kits</h3><p>Complete resources for turning a skill into a clear offer and repeatable process.</p><span>Browse kits <b>&nearr;</b></span></a><a class="ops-archive-card reveal" href="/systems/"><small>02 // SYSTEMS</small><h3>Systems &amp; Templates</h3><p>Ready-to-run structures, templates and practical operating assets.</p><span>Open systems <b>&nearr;</b></span></a><a class="ops-archive-card ops-archive-card--file reveal" href="/files/"><small>03 // CLASSIFIED</small><h3>The Files</h3><p>Focused business files, frameworks and field-tested operator intel.</p><span>Access files <b>&nearr;</b></span></a><a class="ops-archive-card reveal" href="/wall/"><small>04 // PROOF</small><h3>The Wall</h3><p>Visuals, product previews and the record of what SHADOW is building.</p><span>View the wall <b>&nearr;</b></span></a>
+      </div></section>
+      <section class="ops-section ops-intel" id="intel" aria-labelledby="intel-title"><div class="ops-intel-copy reveal"><span>[ 03 / FREE INTEL ]</span><h2 id="intel-title">Get value before you buy.</h2><p>Shadow / Intel is the public channel: useful breakdowns, product drops, build logs and updates. The private network stays reserved for a later stage.</p><div>${telegramAction(store, 'ops-button ops-button--primary', 'Join Shadow / Intel')}<a class="ops-text-link" href="/store/">Or enter the store <b>&rarr;</b></a></div></div><div class="ops-terminal reveal" aria-label="Shadow Intel feed preview"><header><span>SHADOW / INTEL</span><i>PUBLIC CHANNEL</i></header><div><p><small>INTEL // 001</small><b>Clear offers beat complicated tools.</b><span>Practical breakdowns. No empty motivation.</span></p><p><small>DROP // ACTIVE</small><b>New assets go live here first.</b><span>Products, previews and release notes.</span></p><p><small>LOG // OPEN</small><b>The operation is built in public.</b><span>What changed, what shipped, what comes next.</span></p></div><footer><i></i><span>TRANSMISSION OPEN</span></footer></div></section>
+      <section class="ops-section" aria-labelledby="logs-title"><div class="ops-heading reveal"><span>[ 04 / BUILT IN PUBLIC ]</span><div><h2 id="logs-title">Follow the operation.</h2><p>The content is the proof: what is being built, why it matters and where to access it.</p></div></div><div class="ops-log-grid"><article class="reveal"><small>BUILD LOG // 001</small><h3>The store was rebuilt around one journey.</h3><p>Discover, trust, buy, receive, stay. Every page now has a commercial job.</p></article><article class="reveal"><small>BUILD LOG // 002</small><h3>Products are packaged for immediate access.</h3><p>Secure checkout and digital delivery stay at the centre of the operation.</p></article><article class="reveal"><small>BUILD LOG // NEXT</small><h3>The flagship drop is the current focus.</h3><p>One product, repeated proof and a direct path from content to checkout.</p></article></div></section>
+      <section class="ops-section ops-network reveal" aria-labelledby="network-title"><span>[ 05 / ENTER THE NETWORK ]</span><h2 id="network-title">Public intel now.<br>Private network later.</h2><p>The future Shadow Network will be earned by building a real audience and customer base first. For now: join the public channel, use the products and stay close to the next release.</p><div class="ops-network-actions">${telegramAction(store, 'ops-button ops-button--primary', 'Enter Shadow / Intel')}<a class="ops-button ops-button--ghost" href="/store/"><span>Shop the archive</span><b>&nearr;</b></a></div></section>
+      <section class="ops-contact"><div><span>[ SUPPORT / DIRECT LINE ]</span><h2>Need help with a product or order?</h2><p>Email and WhatsApp are support routes. Every product purchase remains self-serve.</p></div><div class="ops-contact-actions">${contactActions(store)}</div></section>
     </main>
-    <footer class="service-footer"><a href="/">SHADOW<span>GLB</span></a><nav><a href="/store/">Kits</a><a href="/systems/">Systems</a><a href="/wall/">Wall</a><a href="/contact/">Contact</a><a href="/admin/">Admin</a></nav><p>&copy; 2026 Shadow Global &middot; TCF Firm Ltd</p></footer>`;
+    <footer class="ops-footer"><a href="/">SHADOW<span>GLB</span></a><nav><a href="/store/">Kits</a><a href="/systems/">Systems</a><a href="/files/">Files</a><a href="/wall/">Wall</a><a href="/contact/">Contact</a><a href="/admin/">Admin</a></nav><p>&copy; 2026 Shadow Global &middot; TCF Firm Ltd</p></footer>`;
 }
 
 function bindInteractions(): void {
-  const menu = document.querySelector<HTMLElement>('.service-mobile-menu');
-  const open = document.querySelector<HTMLButtonElement>('.service-menu-button');
+  const menu = document.querySelector<HTMLElement>('.ops-mobile-menu');
+  const open = document.querySelector<HTMLButtonElement>('.ops-menu-button');
   const close = menu?.querySelector<HTMLButtonElement>(':scope > div button');
   const setMenu = (visible: boolean): void => {
     menu?.classList.toggle('is-open', visible);
     menu?.setAttribute('aria-hidden', String(!visible));
     open?.setAttribute('aria-expanded', String(visible));
-    document.body.classList.toggle('service-menu-open', visible);
+    document.body.classList.toggle('ops-menu-open', visible);
     if (visible) close?.focus();
   };
   open?.addEventListener('click', () => setMenu(true));
   close?.addEventListener('click', () => setMenu(false));
+  menu?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => setMenu(false)));
   document.onkeydown = (event) => { if (event.key === 'Escape') setMenu(false); };
-  document.querySelector<HTMLButtonElement>('.service-announce button')?.addEventListener('click', (event) => {
-    (event.currentTarget as HTMLElement).closest('.service-announce')?.remove();
+  document.querySelector<HTMLButtonElement>('.ops-announce button')?.addEventListener('click', (event) => {
+    (event.currentTarget as HTMLElement).closest('.ops-announce')?.remove();
   });
-
-  const rail = document.querySelector<HTMLElement>('.work-rail');
-  if (rail) {
-    const cards = Array.from(rail.querySelectorAll<HTMLElement>('.work-card'));
-    const dots = document.querySelectorAll<HTMLButtonElement>('.work-dots button');
-    let down = false;
-    let moved = false;
-    let startX = 0;
-    let startScroll = 0;
-    const sync = (): void => {
-      if (!cards.length) return;
-      const centre = rail.scrollLeft + rail.clientWidth / 2;
-      let active = 0;
-      let best = Number.POSITIVE_INFINITY;
-      cards.forEach((card, index) => {
-        const distance = Math.abs(card.offsetLeft + card.offsetWidth / 2 - centre);
-        if (distance < best) { best = distance; active = index; }
-      });
-      cards.forEach((card, index) => card.classList.toggle('is-active', index === active));
-      dots.forEach((dot, index) => dot.classList.toggle('is-active', index === active));
-    };
-    rail.addEventListener('scroll', sync, { passive: true });
-    rail.addEventListener('pointerdown', (event) => {
-      down = true; moved = false; startX = event.clientX; startScroll = rail.scrollLeft;
-      rail.classList.add('is-dragging');
-      rail.setPointerCapture(event.pointerId);
-    });
-    rail.addEventListener('pointermove', (event) => {
-      if (!down) return;
-      const delta = event.clientX - startX;
-      if (Math.abs(delta) > 5) moved = true;
-      rail.scrollLeft = startScroll - delta;
-    });
-    const release = (): void => { down = false; rail.classList.remove('is-dragging'); };
-    rail.addEventListener('pointerup', release);
-    rail.addEventListener('pointercancel', release);
-    rail.addEventListener('click', (event) => { if (moved) { event.preventDefault(); event.stopPropagation(); } }, true);
-    document.querySelectorAll<HTMLButtonElement>('[data-work-move]').forEach((button) => button.addEventListener('click', () => {
-      rail.scrollBy({ left: Number(button.dataset.workMove) * rail.clientWidth * 0.8, behavior: 'smooth' });
-    }));
-    dots.forEach((dot, index) => dot.addEventListener('click', () => {
-      cards[index]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    }));
-    requestAnimationFrame(sync);
-  }
 
   const reveal = document.querySelectorAll<HTMLElement>('.reveal');
   if (revealsDone) {
@@ -368,13 +284,13 @@ function paint(store: HomeStore): void {
   const root = document.querySelector<HTMLElement>('#app');
   if (!root) return;
   root.innerHTML = template(store);
-  document.title = 'ShadowGLB - AI dashboards and e-commerce stores';
-  document.querySelector<HTMLMetaElement>('meta[name="description"]')?.setAttribute('content', 'ShadowGLB builds AI dashboards and conversion-led e-commerce stores for modern operators and brands.');
+  document.title = 'ShadowGLB — Digital products for operators';
+  document.querySelector<HTMLMetaElement>('meta[name="description"]')?.setAttribute('content', 'Operator kits, business files and practical digital systems with secure checkout and immediate delivery.');
   bindInteractions();
 }
 
 let revealsDone = false;
-const CACHE_KEY = 'shadowglb_services_v1';
+const CACHE_KEY = 'shadowglb_landing_v2';
 
 function readCache(): { payload: unknown; fingerprint: string } | null {
   try {

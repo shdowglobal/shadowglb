@@ -496,6 +496,10 @@ function humaniseKey(key: string): string {
     sub: "Hero subtitle",
     contactEmail: "Contact email",
     contactPhone: "WhatsApp number",
+    telegramUrl: "Public Telegram channel",
+    landingEyebrow: "Landing eyebrow",
+    landingTitle: "Landing headline",
+    landingSub: "Landing subtitle",
   };
   if (labels[key]) return labels[key];
   return key
@@ -515,11 +519,13 @@ function contentKind(key: string, value: unknown): "string" | "number" | "boolea
 
 function contentFieldKeys(content: JsonRecord): string[] {
   const preferred = [
-    "logo", "pill", "eyebrow", "title", "sub", "announce", "allLabel", "strip",
+    "logo", "landingEyebrow", "landingTitle", "landingSub", "announce", "telegramUrl",
+    "contactEmail", "contactPhone", "pill", "eyebrow", "title", "sub", "allLabel", "strip",
     "flogo", "fcopy", "confh", "confp", "confsteps",
-    "contactEmail", "contactPhone", "socials", "reviews", "services", "showcase",
+    "socials", "reviews",
   ];
-  const keys = new Set([...preferred, ...Object.keys(content)]);
+  const legacyHidden = new Set(["services", "showcase"]);
+  const keys = new Set([...preferred, ...Object.keys(content).filter((key) => !legacyHidden.has(key))]);
   return [...keys];
 }
 
@@ -569,7 +575,7 @@ function renderContentField(key: string, value: unknown, index: number): string 
     return `<div class="field admin-field">
       <label for="${id}">${label}</label>
       <input class="field" id="${id}" name="content-${index}" type="email" autocomplete="email" inputmode="email" ${data} value="${escapeHtml(value ?? "")}" placeholder="you@example.com">
-      <small>Use any valid inbox. Every Start by email button will open this address.</small>
+      <small>Use any valid inbox. Product and order support links will open this address.</small>
       ${error}
     </div>`;
   }
@@ -579,6 +585,15 @@ function renderContentField(key: string, value: unknown, index: number): string 
       <label for="${id}">${label}</label>
       <input class="field" id="${id}" name="content-${index}" type="tel" autocomplete="tel" inputmode="tel" pattern="[+0-9() .-]{7,32}" ${data} value="${escapeHtml(value ?? "")}" placeholder="+44 7700 900000">
       <small>Include the international country code. Every WhatsApp button will use this number.</small>
+      ${error}
+    </div>`;
+  }
+
+  if (key === "telegramUrl") {
+    return `<div class="field admin-field">
+      <label for="${id}">${label}</label>
+      <input class="field" id="${id}" name="content-${index}" type="url" inputmode="url" ${data} value="${escapeHtml(value ?? "")}" placeholder="https://t.me/your_public_channel">
+      <small>Use the public Shadow / Intel channel. Keep the private buyer group off the public landing page.</small>
       ${error}
     </div>`;
   }

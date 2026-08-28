@@ -169,7 +169,7 @@ function chrome(route: PublicRoute, content: string, store?: PublicStore): strin
     <header class="topbar">
       <a class="brand" href="/" aria-label="ShadowGLB store"><span>${escapeHtml(logoLead)}</span><b>${escapeHtml(logoTail)}</b></a>
       <nav class="desktop-nav" aria-label="Primary navigation">
-        <a class="nav-link${activeClass('home', route)}" href="/">Services</a>
+        <a class="nav-link${activeClass('home', route)}" href="/">Home</a>
         <a class="nav-link${activeClass('store', route)}" href="/store/">Operator Kits</a>
         <a class="nav-link${activeClass('systems', route)}" href="/systems/">Systems &amp; Templates</a>
         <a class="nav-link nav-link--file${activeClass('files', route)}" href="/files/">The Files</a>
@@ -184,7 +184,7 @@ function chrome(route: PublicRoute, content: string, store?: PublicStore): strin
     <div class="mobile-menu" id="mobile-menu" aria-hidden="true">
       <div class="mobile-menu-head"><span>Navigation</span><button class="menu-close" type="button" aria-label="Close navigation">×</button></div>
       <nav aria-label="Mobile navigation">
-        <a href="/"><small>01</small><span>Services</span></a>
+        <a href="/"><small>01</small><span>Home</span></a>
         <a href="/store/"><small>02</small><span>Operator Kits</span></a>
         <a href="/systems/"><small>03</small><span>Systems &amp; Templates</span></a>
         <a href="/files/"><small>04</small><span>The Files</span></a>
