@@ -217,7 +217,7 @@ function validateAdminStoreInput(value) {
   if (Buffer.byteLength(serialized, 'utf8') > 5 * 1024 * 1024) throw new HttpError(413, 'Store data is too large.', 'store_too_large');
   if (value.content !== undefined) {
     if (!isPlainObject(value.content)) throw new HttpError(400, 'content must be a JSON object.', 'invalid_content');
-    const { contactEmail, contactPhone } = value.content;
+    const { contactEmail, contactPhone, telegramUrl } = value.content;
     if (contactEmail !== undefined && contactEmail !== '' && !validateEmail(contactEmail)) {
       throw new HttpError(400, 'The contact email address is invalid.', 'invalid_contact_email');
     }
@@ -225,6 +225,12 @@ function validateAdminStoreInput(value) {
       if (typeof contactPhone !== 'string') throw new HttpError(400, 'The WhatsApp number is invalid.', 'invalid_contact_phone');
       const digits = contactPhone.replace(/\D/g, '');
       if (digits.length < 7 || digits.length > 15) throw new HttpError(400, 'The WhatsApp number is invalid.', 'invalid_contact_phone');
+    }
+    if (telegramUrl !== undefined && telegramUrl !== '') {
+      const safeTelegram = safePublicUrl(telegramUrl, { maxLength: 500 });
+      if (!safeTelegram || !['t.me', 'telegram.me', 'www.telegram.me'].includes(new URL(safeTelegram).hostname.toLowerCase())) {
+        throw new HttpError(400, 'Use a valid public Telegram channel URL.', 'invalid_telegram_url');
+      }
     }
   }
   if (value.products !== undefined) {
