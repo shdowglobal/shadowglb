@@ -32,7 +32,7 @@ test('frontend route, product grouping, money, and Wall helpers', async () => {
   assert.deepEqual(app.normalizeGallery([null, '', { nope: true }]), []);
 });
 
-test('homepage contact actions accept configurable email and WhatsApp details', async () => {
+test('homepage contact actions accept configurable email, WhatsApp, and public Telegram details', async () => {
   const homepage = await import('../dist/assets/homepage.js');
   const admin = await readFile(new URL('../dist/assets/admin.js', import.meta.url), 'utf8');
 
@@ -46,7 +46,10 @@ test('homepage contact actions accept configurable email and WhatsApp details', 
     'https://wa.me/447700900123?text=Hello%20there',
   );
   assert.equal(homepage.whatsappInquiryHref('123', 'Hello'), '');
+  assert.equal(homepage.normalizeTelegramUrl('https://t.me/shadowintel'), 'https://t.me/shadowintel');
+  assert.equal(homepage.normalizeTelegramUrl('https://example.com/not-telegram'), '');
   assert.match(admin, /WhatsApp number/);
+  assert.match(admin, /Public Telegram channel/);
   assert.match(admin, /type="email"/);
 });
 
