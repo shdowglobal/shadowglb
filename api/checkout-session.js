@@ -3,7 +3,7 @@
 const { allowMethods, HttpError, queryParam, sendError, sendJson } = require('./_lib/http');
 const { getStoreRow } = require('./_lib/supabase');
 const { retrieveCheckoutSession } = require('./_lib/stripe');
-const { findProduct, productDeliveryUrl, productName, validateProductId } = require('./_lib/store');
+const { findProduct, productDeliveryPackage, productName, validateProductId } = require('./_lib/store');
 
 async function handler(req, res) {
   try {
@@ -19,14 +19,14 @@ async function handler(req, res) {
     }
     const row = await getStoreRow();
     const product = findProduct(row.data, productId, { includeInactive: true });
-    const deliveryUrl = productDeliveryUrl(product);
+    const delivery = productDeliveryPackage(product, row.data, { includePrivateNetwork: true });
     const customerEmail = (session.customer_details && session.customer_details.email) || session.customer_email || null;
     const name = productName(product);
     sendJson(res, 200, {
       paid: true,
       sessionId: session.id,
       product: { id: productId, name },
-      deliveryUrl,
+      deliveryUrl: delivery.url,
       customerEmail,
       order: {
         productId,
@@ -35,7 +35,7 @@ async function handler(req, res) {
         currency: String(session.currency || session.metadata.currency || 'gbp').toLowerCase(),
         customerEmail,
       },
-      delivery: deliveryUrl ? { status: 'ready', url: deliveryUrl } : { status: 'pending', url: null },
+      delivery: delivery.url ? { status: 'ready', ...delivery } : { status: 'pending', url: null, items: [], message: null },
     });
   } catch (error) {
     sendError(res, error);

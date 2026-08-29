@@ -4943,6 +4943,22 @@ body.has-announce .product-copy {
 .success-status .delivery-button {
   width: 100%;
   min-height: 54px;
+  margin-top: 0;
+}
+
+.success-delivery-message {
+  margin-top: 18px !important;
+  padding: 15px 17px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--ink-2);
+  color: var(--text) !important;
+  text-align: left;
+}
+
+.success-delivery-actions {
+  display: grid;
+  gap: 9px;
   margin-top: 24px;
 }
 

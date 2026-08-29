@@ -12,14 +12,29 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-async function sendDeliveryEmail({ to, productName, deliveryUrl }) {
+function deliveryItems(delivery) {
+  if (!delivery || !Array.isArray(delivery.items)) return [];
+  return delivery.items.slice(0, 20).map((item) => {
+    const url = item && safePublicUrl(item.url, { maxLength: 4000 });
+    if (!url) return null;
+    const label = String(item.label || 'Open your product').trim().slice(0, 100) || 'Open your product';
+    return { label, url };
+  }).filter(Boolean);
+}
+
+async function sendDeliveryEmail({ to, productName, delivery, deliveryUrl }) {
   const apiKey = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim();
   const from = process.env.RESEND_FROM_EMAIL && process.env.RESEND_FROM_EMAIL.trim();
-  const url = safePublicUrl(deliveryUrl, { maxLength: 4000 });
+  const legacyUrl = safePublicUrl(deliveryUrl, { maxLength: 4000 });
+  const items = deliveryItems(delivery);
+  if (!items.length && legacyUrl) items.push({ label: 'Open your product', url: legacyUrl });
   if (!apiKey || !from) return { sent: false, skipped: 'not_configured' };
-  if (!validateEmail(to) || !url) return { sent: false, skipped: 'missing_delivery' };
+  if (!validateEmail(to) || !items.length) return { sent: false, skipped: 'missing_delivery' };
 
   const safeName = String(productName || 'your ShadowGLB product').slice(0, 200);
+  const message = delivery && typeof delivery.message === 'string' ? delivery.message.trim().slice(0, 2000) : '';
+  const textLinks = items.map((item) => `${item.label}: ${item.url}`).join('\n');
+  const htmlLinks = items.map((item) => `<p style="margin:12px 0"><a href="${escapeHtml(item.url)}" style="display:inline-block;background:#27f27c;color:#000;text-decoration:none;padding:14px 20px;border-radius:8px;font-weight:700">${escapeHtml(item.label)}</a></p>`).join('');
   const response = await fetchWithTimeout('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -30,8 +45,8 @@ async function sendDeliveryEmail({ to, productName, deliveryUrl }) {
       from,
       to: [to.trim().toLowerCase()],
       subject: `Your ShadowGLB access: ${safeName}`,
-      text: `Payment confirmed. Access ${safeName} here: ${url}\n\nKeep this email for future access.`,
-      html: `<div style="font-family:Arial,sans-serif;background:#050505;color:#f5f5f5;padding:32px"><h1 style="font-size:24px">Payment confirmed</h1><p>Your access to <strong>${escapeHtml(safeName)}</strong> is ready.</p><p style="margin:28px 0"><a href="${escapeHtml(url)}" style="background:#00ff88;color:#000;text-decoration:none;padding:14px 20px;border-radius:8px;font-weight:700">Get access</a></p><p style="color:#999;font-size:13px">Keep this email for future access.</p></div>`,
+      text: `Payment confirmed. Your access to ${safeName} is ready.\n\n${message ? `${message}\n\n` : ''}${textLinks}\n\nKeep this email for future access.`,
+      html: `<div style="font-family:Arial,sans-serif;background:#050505;color:#f5f5f5;padding:32px"><h1 style="font-size:24px">Payment confirmed</h1><p>Your access to <strong>${escapeHtml(safeName)}</strong> is ready.</p>${message ? `<p style="color:#b8b8b8;line-height:1.6">${escapeHtml(message).replace(/\n/g, '<br>')}</p>` : ''}<div style="margin:28px 0">${htmlLinks}</div><p style="color:#999;font-size:13px">Keep this email for future access.</p></div>`,
     }),
   }, 12000);
   if (!response.ok) return { sent: false, skipped: 'provider_error' };

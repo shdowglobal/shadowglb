@@ -50,6 +50,9 @@ test('homepage contact actions accept configurable email, WhatsApp, and public T
   assert.equal(homepage.normalizeTelegramUrl('https://example.com/not-telegram'), '');
   assert.match(admin, /WhatsApp number/);
   assert.match(admin, /Public Telegram channel/);
+  assert.match(admin, /Private Telegram buyer invite/);
+  assert.match(admin, /Additional delivery options/);
+  assert.match(admin, /Buyer delivery message/);
   assert.match(admin, /type="email"/);
 });
 

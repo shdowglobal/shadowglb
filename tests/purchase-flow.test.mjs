@@ -39,6 +39,9 @@ test('server purchase path prices checkout, verifies payment, records delivery, 
     currency: 'gbp',
     active: true,
     deliveryLink: 'https://delivery.example/protected/operator-bible',
+    deliveryLabel: 'Open the Operator Bible',
+    deliveryItems: [{ label: 'Watch the setup', url: 'https://delivery.example/tutorial', type: 'workspace' }],
+    deliveryMessage: 'Start with the setup video.',
   };
 
   try {
@@ -61,7 +64,7 @@ test('server purchase path prices checkout, verifies payment, records delivery, 
       calls.push({ href, options });
       if (href.startsWith('https://project.supabase.co/rest/v1/shadowgbl_store')) {
         assert.equal(options.headers.apikey, 'service_role_unit_test');
-        return jsonResponse([{ id: 'store', data: { products: [product] }, updated_at: '2026-07-13T12:00:00.000Z' }]);
+        return jsonResponse([{ id: 'store', data: { products: [product], content: { privateTelegramUrl: 'https://t.me/+buyer-network' } }, updated_at: '2026-07-13T12:00:00.000Z' }]);
       }
       if (href === 'https://api.stripe.com/v1/checkout/sessions') {
         const body = new URLSearchParams(String(options.body));
@@ -111,6 +114,10 @@ test('server purchase path prices checkout, verifies payment, records delivery, 
     assert.equal(sessionResponse.statusCode, 200);
     assert.equal(sessionResponse.json().paid, true);
     assert.equal(sessionResponse.json().deliveryUrl, product.deliveryLink);
+    assert.equal(sessionResponse.json().delivery.items.length, 3);
+    assert.equal(sessionResponse.json().delivery.items[0].label, 'Open the Operator Bible');
+    assert.equal(sessionResponse.json().delivery.items[2].url, 'https://t.me/+buyer-network');
+    assert.equal(sessionResponse.json().delivery.message, 'Start with the setup video.');
 
     const event = {
       id: 'evt_checkout_unit_test',

@@ -13,8 +13,16 @@ const PUBLIC_TOP_LEVEL_FIELDS = [
   'systems', 'templates', 'images', 'branding',
 ];
 
-const FORBIDDEN_PUBLIC_KEY = /(password|\bpwd\b|secret|token|service.?role|api.?key|webhook|stripe|delivery|download|w3key|web3forms)/i;
+const FORBIDDEN_PUBLIC_KEY = /(password|\bpwd\b|secret|token|service.?role|api.?key|webhook|stripe|delivery|download|private.?telegram|customer.?invite|network.?invite|w3key|web3forms)/i;
 const SENSITIVE_ADMIN_KEY = /^(pwd|password|serviceRoleKey|supabaseKey|stripeSecretKey|stripeWebhookSecret|webhookSecret|w3key)$/i;
+const DELIVERY_TYPES = new Set(['access', 'download', 'workspace', 'community', 'bundle']);
+const DELIVERY_LABELS = {
+  access: 'Open your product',
+  download: 'Download your files',
+  workspace: 'Open the workspace',
+  community: 'Join the private group',
+  bundle: 'Open the delivery hub',
+};
 
 function isPlainObject(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -181,9 +189,81 @@ function productName(product) {
   return name.trim();
 }
 
+function cleanDeliveryLabel(value, fallback) {
+  const label = cleanString(value, 100);
+  return label && label.trim() ? label.trim() : fallback;
+}
+
+function deliveryType(value) {
+  const type = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return DELIVERY_TYPES.has(type) ? type : 'access';
+}
+
+function safeTelegramUrl(value) {
+  const url = safePublicUrl(value, { maxLength: 500 });
+  if (!url) return null;
+  return ['t.me', 'telegram.me', 'www.telegram.me'].includes(new URL(url).hostname.toLowerCase()) ? url : null;
+}
+
+function deliveryItem(value, fallbackType = 'access') {
+  if (typeof value === 'string') {
+    const [rawLabel, ...urlParts] = value.split('|');
+    const url = safePublicUrl(urlParts.join('|').trim() || rawLabel.trim(), { maxLength: 4000 });
+    if (!url) return null;
+    const type = deliveryType(fallbackType);
+    return {
+      label: urlParts.length ? cleanDeliveryLabel(rawLabel, DELIVERY_LABELS[type]) : DELIVERY_LABELS[type],
+      url,
+      type,
+    };
+  }
+  if (!isPlainObject(value)) return null;
+  const url = safePublicUrl(value.url || value.href || value.link, { maxLength: 4000 });
+  if (!url) return null;
+  const type = deliveryType(value.type || fallbackType);
+  return {
+    label: cleanDeliveryLabel(value.label || value.name || value.title, DELIVERY_LABELS[type]),
+    url,
+    type,
+  };
+}
+
+function productDeliveryPackage(product, storeData, options = {}) {
+  const items = [];
+  const seen = new Set();
+  const add = (item) => {
+    if (!item || seen.has(item.url)) return;
+    seen.add(item.url);
+    items.push(item);
+  };
+  const type = deliveryType(product && product.deliveryType);
+  const primaryValue = product && (product.deliveryLink || product.delivery_url || product.downloadUrl || product.accessUrl);
+  const primaryUrl = safePublicUrl(primaryValue, { maxLength: 4000 });
+  if (primaryUrl) {
+    add({
+      label: cleanDeliveryLabel(product && product.deliveryLabel, DELIVERY_LABELS[type]),
+      url: primaryUrl,
+      type,
+    });
+  }
+  if (product && Array.isArray(product.deliveryItems)) {
+    for (const value of product.deliveryItems.slice(0, 20)) add(deliveryItem(value));
+  }
+  if (options.includePrivateNetwork && isPlainObject(storeData) && isPlainObject(storeData.content)) {
+    const privateUrl = safeTelegramUrl(storeData.content.privateTelegramUrl);
+    if (privateUrl) add({ label: 'Join the private buyer network', url: privateUrl, type: 'community' });
+  }
+  const rawMessage = product && (product.deliveryMessage || product.deliveryNote || product.accessInstructions);
+  const message = cleanString(rawMessage, 2000);
+  return {
+    url: items.length ? items[0].url : null,
+    items,
+    message: message && message.trim() ? message.trim() : null,
+  };
+}
+
 function productDeliveryUrl(product) {
-  const value = product && (product.deliveryLink || product.delivery_url || product.downloadUrl || product.accessUrl);
-  return safePublicUrl(value, { maxLength: 4000 });
+  return productDeliveryPackage(product).url;
 }
 
 function stripePriceId(product) {
@@ -217,7 +297,7 @@ function validateAdminStoreInput(value) {
   if (Buffer.byteLength(serialized, 'utf8') > 5 * 1024 * 1024) throw new HttpError(413, 'Store data is too large.', 'store_too_large');
   if (value.content !== undefined) {
     if (!isPlainObject(value.content)) throw new HttpError(400, 'content must be a JSON object.', 'invalid_content');
-    const { contactEmail, contactPhone, telegramUrl } = value.content;
+    const { contactEmail, contactPhone, telegramUrl, privateTelegramUrl } = value.content;
     if (contactEmail !== undefined && contactEmail !== '' && !validateEmail(contactEmail)) {
       throw new HttpError(400, 'The contact email address is invalid.', 'invalid_contact_email');
     }
@@ -227,10 +307,12 @@ function validateAdminStoreInput(value) {
       if (digits.length < 7 || digits.length > 15) throw new HttpError(400, 'The WhatsApp number is invalid.', 'invalid_contact_phone');
     }
     if (telegramUrl !== undefined && telegramUrl !== '') {
-      const safeTelegram = safePublicUrl(telegramUrl, { maxLength: 500 });
-      if (!safeTelegram || !['t.me', 'telegram.me', 'www.telegram.me'].includes(new URL(safeTelegram).hostname.toLowerCase())) {
+      if (!safeTelegramUrl(telegramUrl)) {
         throw new HttpError(400, 'Use a valid public Telegram channel URL.', 'invalid_telegram_url');
       }
+    }
+    if (privateTelegramUrl !== undefined && privateTelegramUrl !== '' && !safeTelegramUrl(privateTelegramUrl)) {
+      throw new HttpError(400, 'Use a valid private Telegram invite URL.', 'invalid_private_telegram_url');
     }
   }
   if (value.products !== undefined) {
@@ -247,6 +329,24 @@ if (product.active === false) continue;
 productName(product);
 parsePriceToMinor(product.price);
 validateCurrency(product.currency || 'gbp');
+
+if (product.deliveryType !== undefined && !DELIVERY_TYPES.has(String(product.deliveryType).trim().toLowerCase())) {
+  throw new HttpError(400, 'The product delivery type is invalid.', 'invalid_delivery_type');
+}
+if (product.deliveryLink !== undefined && product.deliveryLink !== '' && !safePublicUrl(product.deliveryLink, { maxLength: 4000 })) {
+  throw new HttpError(400, 'The primary delivery link must be a valid HTTPS URL.', 'invalid_delivery_url');
+}
+if (product.deliveryItems !== undefined) {
+  if (!Array.isArray(product.deliveryItems) || product.deliveryItems.length > 20) {
+    throw new HttpError(400, 'Delivery items must be an array of at most 20 links.', 'invalid_delivery_items');
+  }
+  for (const item of product.deliveryItems) {
+    if (!deliveryItem(item)) throw new HttpError(400, 'Every additional delivery item needs a valid HTTPS URL.', 'invalid_delivery_item');
+  }
+}
+if (product.deliveryMessage !== undefined && (typeof product.deliveryMessage !== 'string' || product.deliveryMessage.length > 2000)) {
+  throw new HttpError(400, 'The buyer delivery message is too long.', 'invalid_delivery_message');
+}
 
     }
   }
@@ -290,6 +390,7 @@ module.exports = {
   isPlainObject,
   mergeAdminStore,
   parsePriceToMinor,
+  productDeliveryPackage,
   productDeliveryUrl,
   productName,
   safePublicUrl,
