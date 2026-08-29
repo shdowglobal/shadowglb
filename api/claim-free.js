@@ -2,7 +2,7 @@
 
 const { allowMethods, assertSameOrigin, HttpError, readJson, sendError, sendJson } = require('./_lib/http');
 const { getStoreRow } = require('./_lib/supabase');
-const { findProduct, parsePriceToMinor, productDeliveryUrl, validateCheckoutBody } = require('./_lib/store');
+const { findProduct, parsePriceToMinor, productDeliveryPackage, validateCheckoutBody } = require('./_lib/store');
 
 async function handler(req, res) {
   try {
@@ -17,11 +17,11 @@ async function handler(req, res) {
     if (minor !== 0) {
       throw new HttpError(422, 'This product is not free — use secure checkout instead.', 'not_free');
     }
-    const deliveryUrl = productDeliveryUrl(product);
-    if (!deliveryUrl) {
+    const delivery = productDeliveryPackage(product);
+    if (!delivery.url) {
       throw new HttpError(422, 'This product is not ready for delivery yet.', 'delivery_not_configured');
     }
-    sendJson(res, 200, { deliveryUrl });
+    sendJson(res, 200, { deliveryUrl: delivery.url, delivery: { status: 'ready', ...delivery } });
   } catch (error) {
     sendError(res, error);
   }

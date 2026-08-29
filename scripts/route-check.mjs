@@ -8,7 +8,7 @@ const destinations = new Set(config.rewrites.map((item) => item.source));
 assert.match(html, /id="app"/);
 assert.match(html, /\/assets\/entry\.js/);
 assert.match(html, /\/services\.css/);
-for (const route of ['/store', '/systems', '/wall', '/admin', '/products/:path*', '/checkout/success']) {
+for (const route of ['/store', '/systems', '/wall', '/admin', '/products/:id/', '/products/:path*', '/checkout/success']) {
   assert.ok(destinations.has(route), `Missing Vercel rewrite for ${route}`);
 }
 console.log('Static shell and production route rewrites verified.');

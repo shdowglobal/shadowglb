@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const {
   parsePriceToMinor,
+  productDeliveryPackage,
   sanitizePublicStore,
   validateAdminStoreInput,
   validateCheckoutBody,
@@ -20,6 +21,7 @@ test('public store sanitization exposes display data but never checkout or deliv
     stats: { earned: 9999 },
     content: {
       title: 'Systems built to win.',
+      privateTelegramUrl: 'https://t.me/+buyer-only',
       stripeSecret: 'must-not-leak',
       nested: { deliveryLink: 'https://secret.example/file', eyebrow: 'Operator resources' },
     },
@@ -47,10 +49,35 @@ test('public store sanitization exposes display data but never checkout or deliv
   assert.equal(result.products[0].stripeLink, undefined);
   assert.equal(result.products[0].stripePriceId, undefined);
   assert.equal(result.content.stripeSecret, undefined);
+  assert.equal(result.content.privateTelegramUrl, undefined);
   assert.equal(result.content.nested.deliveryLink, undefined);
   assert.equal(result.pwd, undefined);
   assert.equal(result.settings, undefined);
   assert.equal(result.stats, undefined);
+});
+
+test('delivery packages support labelled resources and keep the buyer network behind payment', () => {
+  const product = {
+    deliveryType: 'download',
+    deliveryLink: 'https://delivery.example/main.zip',
+    deliveryLabel: 'Download the main kit',
+    deliveryItems: [
+      { label: 'Open the tutorial', url: 'https://delivery.example/tutorial', type: 'workspace' },
+      'Bonus files|https://delivery.example/bonus',
+    ],
+    deliveryMessage: 'Start with the tutorial, then download the files.',
+  };
+  const regular = productDeliveryPackage(product);
+  assert.equal(regular.items.length, 3);
+  assert.equal(regular.items[0].label, 'Download the main kit');
+  assert.equal(regular.message, 'Start with the tutorial, then download the files.');
+
+  const paid = productDeliveryPackage(product, {
+    content: { privateTelegramUrl: 'https://t.me/+buyer-only' },
+  }, { includePrivateNetwork: true });
+  assert.equal(paid.items.length, 4);
+  assert.equal(paid.items[3].type, 'community');
+  assert.equal(paid.items[3].url, 'https://t.me/+buyer-only');
 });
 
 test('Stripe webhook signatures require a matching HMAC and a fresh timestamp', () => {
@@ -129,10 +156,15 @@ test('checkout and store validation reject ambiguous IDs, prices, emails, and du
   assert.throws(() => validateAdminStoreInput(JSON.parse('{"products":[],"__proto__":{"polluted":true}}')), /forbidden key/i);
 
   const contacts = validateAdminStoreInput({
-    content: { contactEmail: 'sales@example.co.uk', contactPhone: '+44 7700 900123' },
+    content: { contactEmail: 'sales@example.co.uk', contactPhone: '+44 7700 900123', telegramUrl: 'https://t.me/shadowintel', privateTelegramUrl: 'https://t.me/+buyers' },
   });
   assert.equal(contacts.content.contactEmail, 'sales@example.co.uk');
   assert.equal(contacts.content.contactPhone, '+44 7700 900123');
+  assert.equal(contacts.content.telegramUrl, 'https://t.me/shadowintel');
+  assert.equal(contacts.content.privateTelegramUrl, 'https://t.me/+buyers');
   assert.throws(() => validateAdminStoreInput({ content: { contactEmail: 'invalid' } }), /contact email/i);
   assert.throws(() => validateAdminStoreInput({ content: { contactPhone: '123' } }), /WhatsApp number/i);
+  assert.throws(() => validateAdminStoreInput({ content: { telegramUrl: 'https://example.com/not-telegram' } }), /Telegram channel/i);
+  assert.throws(() => validateAdminStoreInput({ content: { privateTelegramUrl: 'https://example.com/not-private' } }), /private Telegram/i);
+  assert.throws(() => validateAdminStoreInput({ products: [{ id: 'bad-delivery', name: 'Bad', price: '9.99', deliveryItems: [{ label: 'Broken', url: 'javascript:alert(1)' }] }] }), /delivery item/i);
 });

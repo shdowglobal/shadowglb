@@ -4,7 +4,7 @@ if (path === '/') {
   void import('./homepage.js').then(({ renderHomePage }) => renderHomePage());
 } else {
   // The legacy storefront router owns every existing route. Force its home
-  // links through a real navigation so they return to the new services entry.
+  // links through a real navigation so they return to the self-serve landing page.
   document.addEventListener('click', (event) => {
     const link = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
     if (!link || link.getAttribute('href') !== '/') return;

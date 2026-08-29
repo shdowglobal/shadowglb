@@ -17,6 +17,7 @@
     { "source": "/contact/", "destination": "/" },
     { "source": "/admin", "destination": "/" },
     { "source": "/admin/", "destination": "/" },
+    { "source": "/products/:id/", "destination": "/" },
     { "source": "/products/:path*", "destination": "/" },
     { "source": "/checkout/success", "destination": "/" },
     { "source": "/checkout/success/", "destination": "/" }

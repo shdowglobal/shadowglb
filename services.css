@@ -1,15 +1,15 @@
 :root {
-  --service-bg: #050505;
-  --service-panel: #0d0d0d;
-  --service-panel-2: #121212;
+  --service-bg: #010101;
+  --service-panel: #080808;
+  --service-panel-2: #0d0d0d;
   --service-line: rgba(255, 255, 255, 0.11);
-  --service-line-strong: rgba(0, 255, 136, 0.4);
+  --service-line-strong: rgba(35, 217, 121, 0.24);
   --service-text: #f5f5f5;
   --service-muted: #a3a3a3;
   --service-dim: #6b6b6b;
-  --service-blue: #00ff88;
-  --service-violet: #00e07a;
-  --service-cyan: #5affaf;
+  --service-blue: #23d979;
+  --service-violet: #19c86c;
+  --service-cyan: #67e7a7;
   --service-content: 1180px;
   /* Defined here too so the homepage renders correctly even if the main
      store stylesheet loads late or is cached separately. Same values. */
@@ -39,9 +39,9 @@ body.service-menu-open {
   align-items: center;
   justify-content: center;
   padding: 8px 48px;
-  border-bottom: 1px solid rgba(0, 255, 136, 0.3);
-  background: #101020;
-  color: #c9ceff;
+  border-bottom: 1px solid rgba(35, 217, 121, 0.18);
+  background: #080808;
+  color: #d8ddd9;
   font-family: var(--font-mono);
   font-size: 0.6rem;
   letter-spacing: 0.13em;
@@ -77,7 +77,7 @@ body.service-menu-open {
   padding: 9px 10px 9px 24px;
   border: 1px solid var(--service-line);
   border-radius: 22px;
-  background: rgba(13, 13, 20, 0.9);
+  background: rgba(6, 6, 7, 0.94);
   box-shadow: 0 18px 70px rgba(0, 0, 0, 0.48), inset 0 1px rgba(255, 255, 255, 0.045);
   transform: translateX(-50%);
   backdrop-filter: blur(22px) saturate(130%);
@@ -123,8 +123,8 @@ body:has(.service-announce) .service-nav {
 
 .service-nav > nav a:hover,
 .service-nav > nav a.is-active {
-  background: rgba(0, 255, 136, 0.1);
-  color: #d8dcff;
+  background: rgba(35, 217, 121, 0.065);
+  color: #edf1ee;
 }
 
 .service-menu-button {
@@ -1008,20 +1008,20 @@ body:has(.service-announce) .service-nav {
 
 :root {
   --ops-bg: #010101;
-  --ops-panel: #070807;
-  --ops-panel-2: #0b0d0b;
+  --ops-panel: #050505;
+  --ops-panel-2: #090a09;
   --ops-ink: #f2f4f2;
   --ops-muted: #919792;
   --ops-dim: #555b56;
-  --ops-green: #24f47a;
-  --ops-green-soft: rgba(36, 244, 122, 0.09);
+  --ops-green: #23d979;
+  --ops-green-soft: rgba(35, 217, 121, 0.06);
   --ops-line: rgba(238, 246, 240, 0.09);
   --ops-content: 1240px;
   --ops-gutter: clamp(18px, 4vw, 44px);
 }
 
 html { scroll-behavior: smooth; }
-body:has(.ops-nav) { background: radial-gradient(circle at 50% -10%, #0a0d0b 0, #010101 38%, #000 100%); color: var(--ops-ink); }
+body:has(.ops-nav) { background: radial-gradient(circle at 50% -10%, #050806 0, #010101 36%, #000 100%); color: var(--ops-ink); }
 body.ops-menu-open { overflow: hidden; }
 body:has(.ops-nav) #app { min-height: 100vh; overflow: hidden; }
 
@@ -1072,8 +1072,8 @@ body:has(.ops-nav) #app { min-height: 100vh; overflow: hidden; }
   background: rgba(5, 5, 5, 0.92);
   box-shadow: 0 18px 70px rgba(0,0,0,.55), inset 0 1px rgba(255,255,255,.04);
   transform: translateX(-50%);
-  backdrop-filter: blur(22px) saturate(130%);
-  -webkit-backdrop-filter: blur(22px) saturate(130%);
+  backdrop-filter: blur(22px) saturate(110%);
+  -webkit-backdrop-filter: blur(22px) saturate(110%);
 }
 body:has(.ops-announce) .ops-nav { top: 50px; }
 .ops-brand,
@@ -1206,7 +1206,7 @@ body:has(.ops-announce) .ops-nav { top: 50px; }
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
 }
 .ops-button:hover { transform: translateY(-2px); }
-.ops-button--primary { border-color: var(--ops-green); background: var(--ops-green); color: #021308; box-shadow: 0 12px 42px rgba(36,244,122,.16); }
+.ops-button--primary { border-color: var(--ops-green); background: var(--ops-green); color: #021308; box-shadow: 0 12px 42px rgba(35,217,121,.10); }
 .ops-button--ghost { background: rgba(255,255,255,.035); }
 .ops-button--ghost:hover { border-color: rgba(36,244,122,.45); }
 .ops-button--muted { opacity: .58; cursor: default; }
@@ -1244,7 +1244,7 @@ body:has(.ops-announce) .ops-nav { top: 50px; }
 .ops-contact > div:first-child > p { max-width: 650px; margin: 18px 0 0; color: var(--ops-muted); line-height: 1.75; }
 
 .ops-feature { display: grid; grid-template-columns: 1.08fr .92fr; min-height: 520px; border: 1px solid var(--ops-line); border-radius: 26px; background: linear-gradient(145deg, #080908, #040404); box-shadow: 0 28px 90px rgba(0,0,0,.46); overflow: hidden; }
-.ops-feature-media { position: relative; min-height: 460px; border-right: 1px solid var(--ops-line); background: radial-gradient(circle at 50% 40%, rgba(36,244,122,.08), transparent 62%), #030403; color: inherit; text-decoration: none; overflow: hidden; }
+.ops-feature-media { position: relative; min-height: 460px; border-right: 1px solid var(--ops-line); background: radial-gradient(circle at 50% 40%, rgba(35,217,121,.045), transparent 62%), #020302; color: inherit; text-decoration: none; overflow: hidden; }
 .ops-feature-media > span { position: absolute; z-index: 2; top: 20px; left: 20px; padding: 8px 11px; border: 1px solid rgba(36,244,122,.3); border-radius: 8px; background: rgba(2,5,3,.76); color: var(--ops-green); font: 600 .55rem var(--font-mono); letter-spacing: .13em; }
 .ops-feature-media img,
 .ops-feature-media video { width: 100%; height: 100%; object-fit: cover; transition: transform 600ms cubic-bezier(.2,.7,.2,1); }
@@ -1272,7 +1272,7 @@ body:has(.ops-announce) .ops-nav { top: 50px; }
 .ops-archive-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .ops-archive-card { position: relative; display: flex; min-height: 340px; flex-direction: column; padding: 34px; border: 1px solid var(--ops-line); border-radius: 20px; background: linear-gradient(145deg, #070807, #030303); color: inherit; text-decoration: none; overflow: hidden; transition: transform 220ms ease, border-color 220ms ease, background 220ms ease; }
 .ops-archive-card::after { content: ''; position: absolute; right: -90px; bottom: -130px; width: 270px; height: 270px; border: 1px solid rgba(36,244,122,.12); border-radius: 50%; box-shadow: 0 0 70px rgba(36,244,122,.05); }
-.ops-archive-card:hover { border-color: rgba(36,244,122,.42); background: var(--ops-panel-2); transform: translateY(-4px); }
+.ops-archive-card:hover { border-color: rgba(35,217,121,.28); background: var(--ops-panel-2); transform: translateY(-4px); }
 .ops-archive-card small { color: var(--ops-green); font: 600 .58rem var(--font-mono); letter-spacing: .13em; }
 .ops-archive-card h3 { max-width: 430px; margin: auto 0 14px; font: 700 clamp(1.65rem, 3.2vw, 3rem)/1 var(--font-display); letter-spacing: -.07em; }
 .ops-archive-card p { max-width: 460px; margin: 0; color: var(--ops-muted); font-size: .9rem; line-height: 1.7; }

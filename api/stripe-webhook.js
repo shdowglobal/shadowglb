@@ -5,7 +5,7 @@ const { sendDeliveryEmail } = require('./_lib/email');
 const { allowMethods, header, HttpError, readRawBody, sendError, sendJson } = require('./_lib/http');
 const { getStoreRow, insertOrderOnce, markDeliveryEmailSent } = require('./_lib/supabase');
 const { verifyStripeSignature } = require('./_lib/stripe');
-const { findProduct, productDeliveryUrl, productName, validateEmail, validateProductId } = require('./_lib/store');
+const { findProduct, productDeliveryPackage, productName, validateEmail, validateProductId } = require('./_lib/store');
 
 const PAID_EVENTS = new Set(['checkout.session.completed', 'checkout.session.async_payment_succeeded']);
 
@@ -40,7 +40,7 @@ async function handler(req, res) {
     }
     const row = await getStoreRow();
     const product = findProduct(row.data, productId, { includeInactive: true });
-    const deliveryUrl = productDeliveryUrl(product);
+    const delivery = productDeliveryPackage(product, row.data, { includePrivateNetwork: true });
     const candidateEmail = (session.customer_details && session.customer_details.email) || session.customer_email || null;
     const buyerEmail = validateEmail(candidateEmail) ? candidateEmail.trim().toLowerCase() : null;
     const now = new Date().toISOString();
@@ -54,13 +54,13 @@ async function handler(req, res) {
       amount_total: session.amount_total,
       currency: String(session.currency || session.metadata.currency || 'gbp').toLowerCase().slice(0, 3),
       status: 'paid',
-      delivery_link: deliveryUrl,
+      delivery_link: delivery.url,
       updated_at: now,
     });
 
     let email = { sent: false, skipped: result.inserted ? 'missing_delivery' : 'duplicate' };
-    if (result.inserted && buyerEmail && deliveryUrl) {
-      email = await sendDeliveryEmail({ to: buyerEmail, productName: productName(product), deliveryUrl });
+    if (result.inserted && buyerEmail && delivery.url) {
+      email = await sendDeliveryEmail({ to: buyerEmail, productName: productName(product), delivery });
       if (email.sent) {
         try { await markDeliveryEmailSent(session.id, new Date().toISOString()); } catch (_error) { /* order remains visible for manual review */ }
       }

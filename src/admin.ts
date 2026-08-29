@@ -7,6 +7,12 @@ interface MediaItem extends JsonRecord {
   type: "image" | "video" | "document";
 }
 
+interface DeliveryItem extends JsonRecord {
+  label: string;
+  url: string;
+  type?: string;
+}
+
 interface Product extends JsonRecord {
   id: ProductId;
   name: string;
@@ -20,6 +26,10 @@ interface Product extends JsonRecord {
   media?: unknown;
   imageUrl?: string;
   deliveryLink?: string;
+  deliveryType?: string;
+  deliveryLabel?: string;
+  deliveryItems?: unknown;
+  deliveryMessage?: string;
   origPrice?: string | number;
   sold?: string | number;
   active?: boolean;
@@ -90,7 +100,7 @@ type AdminTab = "products" | "content" | "wall" | "orders";
 type ToastKind = "success" | "error" | "info";
 
 interface ProductIssue {
-  field: "name" | "price" | "deliveryLink";
+  field: "name" | "price" | "deliveryLink" | "deliveryItems";
   message: string;
 }
 
@@ -323,6 +333,45 @@ function validDeliveryUrl(value: string): boolean {
   }
 }
 
+function productDeliveryItems(product: Product): DeliveryItem[] {
+  if (!Array.isArray(product.deliveryItems)) return [];
+  const result: DeliveryItem[] = [];
+  for (const item of product.deliveryItems) {
+    if (typeof item === "string") {
+      const [rawLabel, ...urlParts] = item.split("|");
+      const url = (urlParts.join("|") || rawLabel).trim();
+      if (url) result.push({ label: urlParts.length ? rawLabel.trim() || "Open resource" : "Open resource", url });
+      continue;
+    }
+    if (!isRecord(item)) continue;
+    const url = typeof item.url === "string" ? item.url.trim() : "";
+    if (!url) continue;
+    result.push({
+      ...item,
+      label: typeof item.label === "string" && item.label.trim() ? item.label.trim() : "Open resource",
+      url,
+      type: typeof item.type === "string" ? item.type : "access",
+    });
+  }
+  return result.slice(0, 20);
+}
+
+function deliveryItemsText(product: Product): string {
+  return productDeliveryItems(product).map((item) => `${item.label}|${item.url}`).join("\n");
+}
+
+function deliveryItemsFromText(value: string): DeliveryItem[] {
+  return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
+    const [rawLabel, ...urlParts] = line.split("|");
+    const url = (urlParts.join("|") || rawLabel).trim();
+    return {
+      label: urlParts.length ? rawLabel.trim() || "Open resource" : "Open resource",
+      url,
+      type: "access",
+    };
+  }).slice(0, 20);
+}
+
 function productIssues(product: Product): ProductIssue[] {
   const issues: ProductIssue[] = [];
   if (!String(product.name ?? "").trim()) {
@@ -334,8 +383,16 @@ function productIssues(product: Product): ProductIssue[] {
     if (!/^\d{1,7}(?:\.\d{1,2})?$/.test(priceText) || !Number.isFinite(price) || price < 0) {
       issues.push({ field: "price", message: "Active products need a valid price — use 0 to make it free." });
     }
-    if (!validDeliveryUrl(String(product.deliveryLink ?? ""))) {
-      issues.push({ field: "deliveryLink", message: "Active products need a valid HTTPS delivery link before they can be sold." });
+    const primary = String(product.deliveryLink ?? "").trim();
+    const extras = productDeliveryItems(product);
+    if (primary && !validDeliveryUrl(primary)) {
+      issues.push({ field: "deliveryLink", message: "The primary delivery link must be a valid HTTPS URL." });
+    }
+    if (extras.some((item) => !validDeliveryUrl(item.url))) {
+      issues.push({ field: "deliveryItems", message: "Every additional delivery option needs a valid HTTPS URL." });
+    }
+    if (!validDeliveryUrl(primary) && !extras.some((item) => validDeliveryUrl(item.url))) {
+      issues.push({ field: "deliveryLink", message: "Add a primary link or at least one additional delivery option before selling." });
     }
   }
   return issues;
@@ -371,6 +428,10 @@ function productFromForm(form: HTMLFormElement, original: Product): Product {
     badge: inputValue(form, "badge"),
     ptype: inputValue(form, "ptype"),
     deliveryLink: inputValue(form, "deliveryLink"),
+    deliveryType: inputValue(form, "deliveryType") || "access",
+    deliveryLabel: inputValue(form, "deliveryLabel"),
+    deliveryItems: deliveryItemsFromText(inputValue(form, "deliveryItems")),
+    deliveryMessage: inputValue(form, "deliveryMessage"),
     origPrice: scalarLike(original.origPrice, inputValue(form, "origPrice")),
     sold: scalarLike(original.sold, inputValue(form, "sold")),
     active: checkboxValue(form, "active"),
@@ -496,6 +557,11 @@ function humaniseKey(key: string): string {
     sub: "Hero subtitle",
     contactEmail: "Contact email",
     contactPhone: "WhatsApp number",
+    telegramUrl: "Public Telegram channel",
+    privateTelegramUrl: "Private Telegram buyer invite",
+    landingEyebrow: "Landing eyebrow",
+    landingTitle: "Landing headline",
+    landingSub: "Landing subtitle",
   };
   if (labels[key]) return labels[key];
   return key
@@ -515,11 +581,13 @@ function contentKind(key: string, value: unknown): "string" | "number" | "boolea
 
 function contentFieldKeys(content: JsonRecord): string[] {
   const preferred = [
-    "logo", "pill", "eyebrow", "title", "sub", "announce", "allLabel", "strip",
+    "logo", "landingEyebrow", "landingTitle", "landingSub", "announce", "telegramUrl", "privateTelegramUrl",
+    "contactEmail", "contactPhone", "pill", "eyebrow", "title", "sub", "allLabel", "strip",
     "flogo", "fcopy", "confh", "confp", "confsteps",
-    "contactEmail", "contactPhone", "socials", "reviews", "services", "showcase",
+    "socials", "reviews",
   ];
-  const keys = new Set([...preferred, ...Object.keys(content)]);
+  const legacyHidden = new Set(["services", "showcase"]);
+  const keys = new Set([...preferred, ...Object.keys(content).filter((key) => !legacyHidden.has(key))]);
   return [...keys];
 }
 
@@ -569,7 +637,7 @@ function renderContentField(key: string, value: unknown, index: number): string 
     return `<div class="field admin-field">
       <label for="${id}">${label}</label>
       <input class="field" id="${id}" name="content-${index}" type="email" autocomplete="email" inputmode="email" ${data} value="${escapeHtml(value ?? "")}" placeholder="you@example.com">
-      <small>Use any valid inbox. Every Start by email button will open this address.</small>
+      <small>Use any valid inbox. Product and order support links will open this address.</small>
       ${error}
     </div>`;
   }
@@ -579,6 +647,16 @@ function renderContentField(key: string, value: unknown, index: number): string 
       <label for="${id}">${label}</label>
       <input class="field" id="${id}" name="content-${index}" type="tel" autocomplete="tel" inputmode="tel" pattern="[+0-9() .-]{7,32}" ${data} value="${escapeHtml(value ?? "")}" placeholder="+44 7700 900000">
       <small>Include the international country code. Every WhatsApp button will use this number.</small>
+      ${error}
+    </div>`;
+  }
+
+  if (key === "telegramUrl" || key === "privateTelegramUrl") {
+    const isPrivate = key === "privateTelegramUrl";
+    return `<div class="field admin-field">
+      <label for="${id}">${label}</label>
+      <input class="field" id="${id}" name="content-${index}" type="url" inputmode="url" ${data} value="${escapeHtml(value ?? "")}" placeholder="${isPrivate ? "https://t.me/+private_invite" : "https://t.me/your_public_channel"}">
+      <small>${isPrivate ? "Customer-only bonus. This invite is hidden from the public API and is released only after verified payment." : "Public Shadow / Intel channel shown across the landing page."}</small>
       ${error}
     </div>`;
   }
@@ -621,10 +699,19 @@ function renderProductCard(product: Product, index: number): string {
   const nameIssue = issueFor("name");
   const priceIssue = issueFor("price");
   const deliveryIssue = issueFor("deliveryLink");
+  const deliveryItemsIssue = issueFor("deliveryItems");
   const currentType = String(product.ptype ?? "Playbook");
   const knownTypes = ["Playbook", "System", "Tool", "Template", "Bundle", "File"];
   const types = knownTypes.includes(currentType) ? knownTypes : [currentType, ...knownTypes];
   const media = productMedia(product);
+  const currentDeliveryType = String(product.deliveryType ?? "access");
+  const deliveryTypes = [
+    ["access", "Product / access link"],
+    ["download", "Direct download"],
+    ["workspace", "Workspace or course"],
+    ["community", "Private community"],
+    ["bundle", "Multi-link delivery hub"],
+  ];
 
   return `<form class="panel admin-card admin-form" data-admin-form="product" data-product-index="${index}" novalidate>
     <div class="admin-item-main">
@@ -697,11 +784,32 @@ function renderProductCard(product: Product, index: number): string {
         <input class="field" id="product-${index}-stripe" name="stripeLink" type="url" value="${escapeHtml(product.stripeLink)}" placeholder="https://buy.stripe.com/…">
         <small>Kept only for compatibility with existing data. Secure checkout is always created server-side from the live product price.</small>
       </div>
+      <div class="field admin-field">
+        <label for="product-${index}-delivery-type">Primary delivery type</label>
+        <select class="field" id="product-${index}-delivery-type" name="deliveryType">
+          ${deliveryTypes.map(([value, label]) => `<option value="${value}" ${value === currentDeliveryType ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field admin-field">
+        <label for="product-${index}-delivery-label">Primary button label</label>
+        <input class="field" id="product-${index}-delivery-label" name="deliveryLabel" type="text" maxlength="100" value="${escapeHtml(product.deliveryLabel)}" placeholder="Open your product">
+      </div>
       <div class="field admin-field admin-field-wide">
-        <label for="product-${index}-delivery">Delivery link</label>
+        <label for="product-${index}-delivery">Primary delivery link</label>
         <input class="field" id="product-${index}-delivery" name="deliveryLink" type="url" value="${escapeHtml(product.deliveryLink)}" placeholder="https://…" aria-invalid="${deliveryIssue ? "true" : "false"}" aria-describedby="product-${index}-delivery-error">
         <span class="admin-field-error" id="product-${index}-delivery-error" data-error-for="deliveryLink">${escapeHtml(deliveryIssue)}</span>
-        <small>Use an existing protected delivery URL. Storefront media uploads are public and must not contain paid files.</small>
+        <small>This is the first button customers see after payment. Use a secure HTTPS download, product, course, workspace or access URL.</small>
+      </div>
+      <div class="field admin-field admin-field-wide">
+        <label for="product-${index}-delivery-items">Additional delivery options</label>
+        <textarea class="field" id="product-${index}-delivery-items" name="deliveryItems" rows="5" aria-invalid="${deliveryItemsIssue ? "true" : "false"}" aria-describedby="product-${index}-delivery-items-error">${escapeHtml(deliveryItemsText(product))}</textarea>
+        <span class="admin-field-error" id="product-${index}-delivery-items-error" data-error-for="deliveryItems">${escapeHtml(deliveryItemsIssue)}</span>
+        <small>One per line: Button label|https://link — use this for bonuses, tutorials, downloads, workspaces or a private Telegram invite.</small>
+      </div>
+      <div class="field admin-field admin-field-wide">
+        <label for="product-${index}-delivery-message">Buyer delivery message</label>
+        <textarea class="field" id="product-${index}-delivery-message" name="deliveryMessage" rows="4" maxlength="2000" placeholder="Optional instructions shown only after payment and in the delivery email.">${escapeHtml(product.deliveryMessage)}</textarea>
+        <small>Keep paid files out of Product media—the media bucket is public. Delivery fields remain server-only.</small>
       </div>
     </div>
 
@@ -1057,10 +1165,10 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
       summary.hidden = issues.length === 0;
       summary.textContent = issues.map((issue) => issue.message).join(" ");
     }
-    for (const field of ["name", "price", "deliveryLink"] as const) {
+    for (const field of ["name", "price", "deliveryLink", "deliveryItems"] as const) {
       const issue = issues.find((candidate) => candidate.field === field);
       const control = form.elements.namedItem(field);
-      if (control instanceof HTMLInputElement) control.setAttribute("aria-invalid", issue ? "true" : "false");
+      if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) control.setAttribute("aria-invalid", issue ? "true" : "false");
       const error = form.querySelector<HTMLElement>(`[data-error-for="${field}"]`);
       if (error) error.textContent = issue?.message ?? "";
     }
@@ -1350,6 +1458,10 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
           media: [],
           imageUrl: "",
           deliveryLink: "",
+          deliveryType: "access",
+          deliveryLabel: "",
+          deliveryItems: [],
+          deliveryMessage: "",
           origPrice: "",
           sold: "",
           active: false,

@@ -21,6 +21,7 @@ export interface Product {
   origPrice?: string;
   sold?: string;
   active?: boolean;
+  featured?: boolean;
   checkoutReady?: boolean;
 }
 
@@ -52,6 +53,10 @@ export interface StoreContent {
   showcase?: string[];
   contactEmail?: string;
   contactPhone?: string;
+  telegramUrl?: string;
+  landingEyebrow?: string;
+  landingTitle?: string;
+  landingSub?: string;
   socials?: string[];
 }
 

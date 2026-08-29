@@ -169,7 +169,7 @@ function chrome(route: PublicRoute, content: string, store?: PublicStore): strin
     <header class="topbar">
       <a class="brand" href="/" aria-label="ShadowGLB store"><span>${escapeHtml(logoLead)}</span><b>${escapeHtml(logoTail)}</b></a>
       <nav class="desktop-nav" aria-label="Primary navigation">
-        <a class="nav-link${activeClass('home', route)}" href="/">Services</a>
+        <a class="nav-link${activeClass('home', route)}" href="/">Home</a>
         <a class="nav-link${activeClass('store', route)}" href="/store/">Operator Kits</a>
         <a class="nav-link${activeClass('systems', route)}" href="/systems/">Systems &amp; Templates</a>
         <a class="nav-link nav-link--file${activeClass('files', route)}" href="/files/">The Files</a>
@@ -184,7 +184,7 @@ function chrome(route: PublicRoute, content: string, store?: PublicStore): strin
     <div class="mobile-menu" id="mobile-menu" aria-hidden="true">
       <div class="mobile-menu-head"><span>Navigation</span><button class="menu-close" type="button" aria-label="Close navigation">×</button></div>
       <nav aria-label="Mobile navigation">
-        <a href="/"><small>01</small><span>Services</span></a>
+        <a href="/"><small>01</small><span>Home</span></a>
         <a href="/store/"><small>02</small><span>Operator Kits</span></a>
         <a href="/systems/"><small>03</small><span>Systems &amp; Templates</span></a>
         <a href="/files/"><small>04</small><span>The Files</span></a>
@@ -640,9 +640,23 @@ async function renderSuccess(): Promise<void> {
     return;
   }
   try {
-    const result = await requestJson<{ paid: boolean; product?: { name?: string }; deliveryUrl?: string; customerEmail?: string }>(`/api/checkout-session?session_id=${encodeURIComponent(sessionId)}`);
-    if (!result.paid || !result.deliveryUrl) throw new Error('Payment is not marked as paid yet.');
-    if (target) target.innerHTML = `<div class="success-status is-success"><span>✓</span><small>Payment verified</small><h1>Access unlocked.</h1><p>${escapeHtml(result.product?.name || 'Your product')} is ready.${result.customerEmail ? ` A confirmation was prepared for ${escapeHtml(result.customerEmail)}.` : ''}</p><a class="button button-primary delivery-button" href="${escapeHtml(result.deliveryUrl)}" target="_blank" rel="noopener">Open your product <b>→</b></a><a class="text-link" href="/">Return to the store</a></div>`;
+    const result = await requestJson<{
+      paid: boolean;
+      product?: { name?: string };
+      deliveryUrl?: string;
+      customerEmail?: string;
+      delivery?: { status?: string; message?: string | null; items?: Array<{ label?: string; url?: string; type?: string }> };
+    }>(`/api/checkout-session?session_id=${encodeURIComponent(sessionId)}`);
+    const deliveryItems = Array.isArray(result.delivery?.items)
+      ? result.delivery.items.filter((item) => item && typeof item.url === 'string' && item.url.startsWith('https://')).slice(0, 20)
+      : [];
+    if (!deliveryItems.length && result.deliveryUrl?.startsWith('https://')) {
+      deliveryItems.push({ label: 'Open your product', url: result.deliveryUrl, type: 'access' });
+    }
+    if (!result.paid || !deliveryItems.length) throw new Error('Payment is not marked as paid yet.');
+    const actions = deliveryItems.map((item, index) => `<a class="button ${index === 0 ? 'button-primary' : 'button-ghost'} delivery-button" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label || (index === 0 ? 'Open your product' : 'Open resource'))} <b>→</b></a>`).join('');
+    const message = result.delivery?.message ? `<p class="success-delivery-message">${escapeHtml(result.delivery.message).replace(/\n/g, '<br>')}</p>` : '';
+    if (target) target.innerHTML = `<div class="success-status is-success"><span>✓</span><small>Payment verified</small><h1>Access unlocked.</h1><p>${escapeHtml(result.product?.name || 'Your product')} is ready.${result.customerEmail ? ` A confirmation was prepared for ${escapeHtml(result.customerEmail)}.` : ''}</p>${message}<div class="success-delivery-actions">${actions}</div><a class="text-link" href="/">Return to the store</a></div>`;
     setMeta('Purchase complete — ShadowGLB', 'Your verified ShadowGLB purchase is ready.');
   } catch (error) {
     if (target) target.innerHTML = `<div class="success-status is-error"><span>!</span><h1>We couldn’t verify this payment.</h1><p>${escapeHtml(error instanceof Error ? error.message : 'Please try again shortly.')}</p><button class="button button-primary" type="button" data-retry>Check again</button><a class="text-link" href="mailto:${DEFAULT_CONTACT}">Contact support</a></div>`;
