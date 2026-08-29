@@ -87,9 +87,9 @@ const FALLBACK_STORE: HomeStore = {
   telegramUrl: 'https://t.me/shadowGLBintel',
   logo: 'SHADOW|GLB',
   announcement: '',
-  eyebrow: '[ SELF-SERVE DIGITAL OPERATIONS ]',
-  title: 'Built to buy.\nBuilt to move.',
-  subtitle: 'Operator kits, field files and practical systems. Secure checkout. Immediate access. No call required.',
+  eyebrow: '[ SELF-SERVE DIGITAL OPS ]',
+  title: 'MOVE\nQUIET.',
+  subtitle: 'Operator kits, field files and private systems. Secure checkout. Instant delivery. No call required.',
   products: [],
 };
 
@@ -139,6 +139,7 @@ export function emailInquiryHref(email: string, subject: string, message: string
 
 export function normalizeWhatsAppNumber(value: string): string {
   const digits = value.replace(/\D/g, '');
+  if (/^0\d{10}$/.test(digits)) return `44${digits.slice(1)}`;
   return digits.length >= 7 && digits.length <= 15 ? digits : '';
 }
 
@@ -209,6 +210,29 @@ function contactActions(store: HomeStore): string {
   return `<a class="ops-contact-link" href="${escapeHtml(email)}"><small>Email</small><span>${escapeHtml(store.contactEmail)}</span><b>&nearr;</b></a>${whatsapp ? `<a class="ops-contact-link" href="${escapeHtml(whatsapp)}" target="_blank" rel="noopener noreferrer"><small>Support</small><span>WhatsApp</span><b>&nearr;</b></a>` : ''}`;
 }
 
+function heroContactIcon(type: 'email' | 'telegram' | 'whatsapp'): string {
+  if (type === 'email') {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5.5h18v13H3z"/><path d="m4 7 8 6 8-6"/></svg>';
+  }
+  if (type === 'telegram') {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-7-6.5 16-4-6-4 3z"/><path d="m10.5 14 4.5-4.5"/></svg>';
+  }
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-11.7 7L4 20l1.5-4.1A8 8 0 1 1 20 11.5Z"/><path d="M9 8.5c.3 2.7 2 4.4 4.7 4.8"/></svg>';
+}
+
+function heroContactActions(store: HomeStore): string {
+  const message = 'Hi ShadowGLB, I have a question about a product or order:';
+  const email = emailInquiryHref(store.contactEmail, 'ShadowGLB product enquiry', message);
+  const whatsapp = whatsappInquiryHref(store.contactPhone, message);
+  const telegram = store.telegramUrl
+    ? `<a class="ops-hero-contact" href="${escapeHtml(store.telegramUrl)}" target="_blank" rel="noopener noreferrer">${heroContactIcon('telegram')}<span>Telegram</span></a>`
+    : '<span class="ops-hero-contact is-disabled" aria-label="Telegram channel link pending">' + heroContactIcon('telegram') + '<span>Telegram</span></span>';
+  const whatsappAction = whatsapp
+    ? `<a class="ops-hero-contact" href="${escapeHtml(whatsapp)}" target="_blank" rel="noopener noreferrer">${heroContactIcon('whatsapp')}<span>WhatsApp</span></a>`
+    : '<span class="ops-hero-contact is-disabled" aria-label="WhatsApp number pending">' + heroContactIcon('whatsapp') + '<span>WhatsApp</span></span>';
+  return `<div class="ops-hero-contacts" aria-label="Contact ShadowGLB"><a class="ops-hero-contact" href="${escapeHtml(email)}">${heroContactIcon('email')}<span>Email</span></a>${telegram}${whatsappAction}</div>`;
+}
+
 function featuredMarkup(store: HomeStore): string {
   const product = featuredProduct(store);
   if (!product) return `<article class="ops-feature ops-feature--empty reveal"><div><span>FLAGSHIP // LOADING BAY</span><h2>The next release is being prepared.</h2><p>Enter the store to view every live kit, file and system.</p></div><a class="ops-button ops-button--primary" href="/store/"><span>Enter the store</span><b>&nearr;</b></a></article>`;
@@ -226,7 +250,7 @@ function template(store: HomeStore): string {
     <header class="ops-nav"><a class="ops-brand" href="/" aria-label="ShadowGLB home"><span>${escapeHtml(logoLead)}</span><b>${escapeHtml(logoTail)}</b></a><nav aria-label="Primary navigation"><a class="is-active" href="/">Home</a><a href="/store/">Operator Kits</a><a href="/systems/">Systems</a><a href="/files/">The Files</a><a href="/wall/">The Wall</a><a href="#intel">Free Intel</a></nav><div class="ops-nav-actions">${store.telegramUrl ? `<a href="${escapeHtml(store.telegramUrl)}" target="_blank" rel="noopener noreferrer">Join Intel <b>&nearr;</b></a>` : '<a href="/store/">Enter store <b>&nearr;</b></a>'}<button class="ops-menu-button" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="ops-mobile-menu"><span></span><span></span></button></div></header>
     <div class="ops-mobile-menu" id="ops-mobile-menu" aria-hidden="true"><div><span>Navigation</span><button type="button" aria-label="Close navigation">&times;</button></div><nav aria-label="Mobile navigation"><a href="/"><small>01</small><span>Home</span></a><a href="/store/"><small>02</small><span>Operator Kits</span></a><a href="/systems/"><small>03</small><span>Systems</span></a><a href="/files/"><small>04</small><span>The Files</span></a><a href="/wall/"><small>05</small><span>The Wall</span></a><a href="#intel"><small>06</small><span>Free Intel</span></a><a href="/contact/"><small>07</small><span>Contact</span></a></nav><p>SHADOWGLB // SELF-SERVE NETWORK</p></div>
     <main id="main-content">
-      <section class="ops-hero"><div class="ops-grid" aria-hidden="true"></div><div class="ops-signal" aria-hidden="true"><i></i><i></i><span>SG</span></div><div class="ops-hero-copy reveal"><span class="ops-kicker">${escapeHtml(store.eyebrow)}</span><h1>${escapeHtml(store.title).replace(/\n/g, '<br>')}</h1><p>${escapeHtml(store.subtitle)}</p><div class="ops-hero-actions"><a class="ops-button ops-button--primary" href="/store/"><span>Enter the store</span><b>&nearr;</b></a><a class="ops-button ops-button--ghost" href="#flagship"><span>View flagship</span><b>&darr;</b></a></div></div><div class="ops-hero-status"><span><i></i> STORE ONLINE</span><span>STRIPE SECURED</span><span>AUTO DELIVERY</span></div></section>
+      <section class="ops-hero"><div class="ops-grid" aria-hidden="true"></div><div class="ops-signal" aria-hidden="true"><i></i><i></i><span>SG</span></div><div class="ops-hero-copy reveal"><span class="ops-kicker">${escapeHtml(store.eyebrow)}</span><h1>${escapeHtml(store.title).replace(/\n/g, '<br>')}</h1><p>${escapeHtml(store.subtitle)}</p><div class="ops-hero-actions"><a class="ops-button ops-button--primary" href="/store/"><span>Enter store</span><b>&rarr;</b></a></div>${heroContactActions(store)}</div><div class="ops-hero-status"><span><i></i> STORE ONLINE</span><span>AUTO DELIVERY</span><span>BUY</span><span>RECEIVE</span><span>REPEAT</span></div></section>
       <div class="ops-ticker" aria-label="ShadowGLB buying journey"><div>${stages.map((item) => `<span>${item}<i>+</i></span>`).join('')}</div></div>
       <section class="ops-section" id="flagship" aria-labelledby="flagship-title"><div class="ops-heading reveal"><span>[ 01 / FEATURED DROP ]</span><div><h2 id="flagship-title">Start with the strongest asset.</h2><p>One clear product. One secure payment. Immediate access after verification.</p></div></div>${featuredMarkup(store)}</section>
       <section class="ops-section" aria-labelledby="archive-title"><div class="ops-heading reveal"><span>[ 02 / THE ARCHIVE ]</span><div><h2 id="archive-title">Choose your entry point.</h2><p>Everything has a purpose. No filler, fake scarcity or call required.</p></div></div><div class="ops-archive-grid">

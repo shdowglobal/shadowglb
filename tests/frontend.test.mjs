@@ -41,6 +41,7 @@ test('homepage contact actions accept configurable email, WhatsApp, and public T
     'mailto:hello@example.co.uk?subject=Build%20enquiry&body=Hello%20there',
   );
   assert.equal(homepage.normalizeWhatsAppNumber('+44 7700 900-123'), '447700900123');
+  assert.equal(homepage.normalizeWhatsAppNumber('07359 468099'), '447359468099');
   assert.equal(
     homepage.whatsappInquiryHref('+44 7700 900-123', 'Hello there'),
     'https://wa.me/447700900123?text=Hello%20there',
