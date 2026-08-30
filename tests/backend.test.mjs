@@ -109,7 +109,7 @@ test('private ZIP assets are checkout-ready, stay out of public data, and create
   assert.equal(delivery.items.length, 1);
   assert.equal(delivery.items[0].type, 'download');
   assert.equal(delivery.items[0].label, 'Download Operator Stack V1');
-  assert.equal(delivery.items[0].url, 'https://shadowglb.com/api/delivery-download?product_id=operator-stack-v1&session_id=cs_live_customer123');
+  assert.equal(delivery.items[0].url, 'https://shadowglb.com/api/checkout-session?delivery=1&product_id=operator-stack-v1&session_id=cs_live_customer123');
 });
 
 test('Stripe webhook signatures require a matching HMAC and a fresh timestamp', () => {

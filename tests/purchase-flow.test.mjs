@@ -7,7 +7,6 @@ const require = createRequire(import.meta.url);
 const checkout = require('../api/checkout.js');
 const checkoutSession = require('../api/checkout-session.js');
 const claimFree = require('../api/claim-free.js');
-const deliveryDownload = require('../api/delivery-download.js');
 const stripeWebhook = require('../api/stripe-webhook.js');
 
 function responseRecorder() {
@@ -219,10 +218,10 @@ test('paid delivery endpoint verifies the Stripe session and streams the exact p
       setHeader(name, value) { headers.set(String(name).toLowerCase(), value); },
       end(value = '') { this.body = Buffer.isBuffer(value) ? value : Buffer.from(String(value)); },
     };
-    await deliveryDownload({
+    await checkoutSession({
       method: 'GET',
       headers: {},
-      query: { product_id: product.id, session_id: 'cs_test_stackpaid' },
+      query: { delivery: '1', product_id: product.id, session_id: 'cs_test_stackpaid' },
     }, response);
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.body, zip);
@@ -276,7 +275,7 @@ test('Research Operator Lite unlocks separately for free and cannot expose the p
     const freeResponse = responseRecorder();
     await claimFree(request('research-operator-lite'), freeResponse);
     assert.equal(freeResponse.statusCode, 200);
-    assert.equal(freeResponse.json().deliveryUrl, 'https://www.shadowglb.com/api/delivery-download?product_id=research-operator-lite');
+    assert.equal(freeResponse.json().deliveryUrl, 'https://www.shadowglb.com/api/checkout-session?delivery=1&product_id=research-operator-lite');
 
     const paidResponse = responseRecorder();
     await claimFree(request('operator-stack-v1'), paidResponse);
