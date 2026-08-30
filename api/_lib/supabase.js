@@ -1,6 +1,6 @@
 'use strict';
 
-const { getMediaBucket, getSupabaseAnonKey, getSupabaseServiceKey, getSupabaseUrl } = require('./env');
+const { getDeliveryBucket, getMediaBucket, getSupabaseAnonKey, getSupabaseServiceKey, getSupabaseUrl } = require('./env');
 const { HttpError } = require('./http');
 
 class UpstreamError extends Error {
@@ -150,9 +150,70 @@ async function createSignedMediaUpload(path) {
   };
 }
 
+async function ensurePrivateDeliveryBucket() {
+  const bucket = getDeliveryBucket();
+  try {
+    await supabaseRequest(`/storage/v1/bucket/${encodeURIComponent(bucket)}`, { service: true });
+  } catch (error) {
+    if (!(error instanceof UpstreamError) || error.status !== 404) throw error;
+    await supabaseRequest('/storage/v1/bucket', {
+      service: true,
+      method: 'POST',
+      json: {
+        id: bucket,
+        name: bucket,
+        public: false,
+        file_size_limit: 50 * 1024 * 1024,
+        allowed_mime_types: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
+      },
+    });
+  }
+  return bucket;
+}
+
+async function uploadDeliveryObject(path, buffer, contentType = 'application/zip') {
+  const bucket = await ensurePrivateDeliveryBucket();
+  await supabaseRequest(`/storage/v1/object/${bucket}/${encodeStoragePath(path)}`, {
+    service: true,
+    method: 'POST',
+    headers: {
+      'Content-Type': contentType,
+      'x-upsert': 'true',
+      'Cache-Control': '0',
+    },
+    body: buffer,
+    timeoutMs: 30000,
+  });
+  return { bucket, path };
+}
+
+async function downloadDeliveryObject(path, bucket = getDeliveryBucket()) {
+  const apiKey = getSupabaseServiceKey();
+  const response = await fetchWithTimeout(`${getSupabaseUrl()}/storage/v1/object/${encodeURIComponent(bucket)}/${encodeStoragePath(path)}`, {
+    headers: {
+      apikey: apiKey,
+      Authorization: `Bearer ${apiKey}`,
+    },
+  }, 30000);
+  if (!response.ok) {
+    throw new UpstreamError('Supabase', response.status, 'The delivery file could not be retrieved.');
+  }
+  const declaredSize = Number(response.headers.get('content-length') || 0);
+  if (declaredSize > 50 * 1024 * 1024) {
+    throw new UpstreamError('Supabase', 413, 'The delivery file is too large.');
+  }
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (!buffer.length || buffer.length > 50 * 1024 * 1024) {
+    throw new UpstreamError('Supabase', 502, 'The delivery file is empty or too large.');
+  }
+  return buffer;
+}
+
 module.exports = {
   UpstreamError,
   createSignedMediaUpload,
+  downloadDeliveryObject,
+  ensurePrivateDeliveryBucket,
   fetchWithTimeout,
   getStoreRow,
   insertOrderOnce,
@@ -160,5 +221,6 @@ module.exports = {
   markDeliveryEmailSent,
   supabaseRequest,
   updateStoreRow,
+  uploadDeliveryObject,
   uploadMediaObject,
 };

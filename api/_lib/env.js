@@ -81,6 +81,14 @@ function getMediaBucket() {
   return bucket;
 }
 
+function getDeliveryBucket() {
+  const bucket = readEnv('SUPABASE_DELIVERY_BUCKET', { required: false }) || 'shadowglb-deliveries';
+  if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(bucket)) {
+    throw new HttpError(500, 'SUPABASE_DELIVERY_BUCKET is invalid.', 'server_misconfigured');
+  }
+  return bucket;
+}
+
 function parseAdminEmails(raw = process.env.ADMIN_EMAILS || '') {
   return String(raw)
     .split(/[;,\s]+/)
@@ -96,6 +104,7 @@ function isAdminEmailAllowed(email, raw = process.env.ADMIN_EMAILS || '') {
 }
 
 module.exports = {
+  getDeliveryBucket,
   getSiteUrl,
   getMediaBucket,
   getStripeSecretKey,

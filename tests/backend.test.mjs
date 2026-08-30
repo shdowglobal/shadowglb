@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const {
+  hasProductDelivery,
   parsePriceToMinor,
   productDeliveryPackage,
   sanitizePublicStore,
@@ -78,6 +79,37 @@ test('delivery packages support labelled resources and keep the buyer network be
   assert.equal(paid.items.length, 4);
   assert.equal(paid.items[3].type, 'community');
   assert.equal(paid.items[3].url, 'https://t.me/+buyer-only');
+});
+
+test('private ZIP assets are checkout-ready, stay out of public data, and create session-bound delivery links', () => {
+  const product = {
+    id: 'operator-stack-v1',
+    name: 'SHADOW // OPERATOR STACK V1',
+    price: '59',
+    active: true,
+    deliveryLabel: 'Download Operator Stack V1',
+    deliveryAsset: {
+      bucket: 'shadowglb-deliveries',
+      path: 'releases/operator-stack-v1/SHADOW_OPERATOR_STACK_V1_FINAL.zip',
+      fileName: 'SHADOW_OPERATOR_STACK_V1_FINAL.zip',
+      contentType: 'application/zip',
+      size: 125785,
+      sha256: 'a'.repeat(64),
+    },
+  };
+  assert.equal(hasProductDelivery(product), true);
+  const publicStore = sanitizePublicStore({ products: [product] });
+  assert.equal(publicStore.products[0].checkoutReady, true);
+  assert.equal(publicStore.products[0].deliveryAsset, undefined);
+
+  const delivery = productDeliveryPackage(product, {}, {
+    siteUrl: 'https://shadowglb.com',
+    sessionId: 'cs_live_customer123',
+  });
+  assert.equal(delivery.items.length, 1);
+  assert.equal(delivery.items[0].type, 'download');
+  assert.equal(delivery.items[0].label, 'Download Operator Stack V1');
+  assert.equal(delivery.items[0].url, 'https://shadowglb.com/api/checkout-session?delivery=1&product_id=operator-stack-v1&session_id=cs_live_customer123');
 });
 
 test('Stripe webhook signatures require a matching HMAC and a fresh timestamp', () => {

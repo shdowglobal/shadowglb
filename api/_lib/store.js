@@ -101,7 +101,7 @@ function sanitizeProduct(product) {
   if (output.id === undefined || (!output.name && !output.title)) return null;
   try {
     parsePriceToMinor(product.price);
-    output.checkoutReady = Boolean(productDeliveryUrl(product));
+    output.checkoutReady = hasProductDelivery(product);
   } catch (_error) {
     output.checkoutReady = false;
   }
@@ -205,6 +205,41 @@ function safeTelegramUrl(value) {
   return ['t.me', 'telegram.me', 'www.telegram.me'].includes(new URL(url).hostname.toLowerCase()) ? url : null;
 }
 
+function deliveryAssetForProduct(product) {
+  const value = product && product.deliveryAsset;
+  if (!isPlainObject(value)) return null;
+  const path = cleanString(value.path, 500);
+  const fileName = cleanString(value.fileName, 255);
+  const bucket = value.bucket === undefined ? null : cleanString(value.bucket, 63);
+  const contentType = cleanString(value.contentType, 100) || 'application/zip';
+  const sha256 = value.sha256 === undefined ? null : cleanString(value.sha256, 64);
+  const size = Number(value.size);
+  if (!path || path.startsWith('/') || path.includes('..') || !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(path)) return null;
+  if (!fileName || !/^[^\\/\0]{1,255}\.zip$/i.test(fileName)) return null;
+  if (bucket !== null && !/^[a-z0-9][a-z0-9_-]{0,62}$/.test(bucket)) return null;
+  if (!['application/zip', 'application/x-zip-compressed', 'application/octet-stream'].includes(contentType)) return null;
+  if (!Number.isSafeInteger(size) || size < 1 || size > 50 * 1024 * 1024) return null;
+  if (sha256 !== null && !/^[a-f0-9]{64}$/i.test(sha256)) return null;
+  return { path, fileName, bucket, contentType, size, sha256 };
+}
+
+function secureAssetDeliveryItem(product, options = {}) {
+  const asset = deliveryAssetForProduct(product);
+  const siteUrl = safePublicUrl(options.siteUrl, { allowHttp: process.env.NODE_ENV !== 'production', maxLength: 1000 });
+  if (!asset || !siteUrl) return null;
+  let productId;
+  try { productId = validateProductId(product.id); } catch (_error) { return null; }
+  const url = new URL('/api/checkout-session', siteUrl);
+  url.searchParams.set('delivery', '1');
+  url.searchParams.set('product_id', productId);
+  if (typeof options.sessionId === 'string' && options.sessionId) url.searchParams.set('session_id', options.sessionId);
+  return {
+    label: cleanDeliveryLabel(product.deliveryLabel, 'Download your files'),
+    url: url.toString(),
+    type: 'download',
+  };
+}
+
 function deliveryItem(value, fallbackType = 'access') {
   if (typeof value === 'string') {
     const [rawLabel, ...urlParts] = value.split('|');
@@ -236,6 +271,7 @@ function productDeliveryPackage(product, storeData, options = {}) {
     seen.add(item.url);
     items.push(item);
   };
+  add(secureAssetDeliveryItem(product, options));
   const type = deliveryType(product && product.deliveryType);
   const primaryValue = product && (product.deliveryLink || product.delivery_url || product.downloadUrl || product.accessUrl);
   const primaryUrl = safePublicUrl(primaryValue, { maxLength: 4000 });
@@ -262,8 +298,12 @@ function productDeliveryPackage(product, storeData, options = {}) {
   };
 }
 
-function productDeliveryUrl(product) {
-  return productDeliveryPackage(product).url;
+function hasProductDelivery(product) {
+  return Boolean(deliveryAssetForProduct(product) || productDeliveryPackage(product).url);
+}
+
+function productDeliveryUrl(product, storeData, options) {
+  return productDeliveryPackage(product, storeData, options).url;
 }
 
 function stripePriceId(product) {
@@ -347,6 +387,9 @@ if (product.deliveryItems !== undefined) {
 if (product.deliveryMessage !== undefined && (typeof product.deliveryMessage !== 'string' || product.deliveryMessage.length > 2000)) {
   throw new HttpError(400, 'The buyer delivery message is too long.', 'invalid_delivery_message');
 }
+if (product.deliveryAsset !== undefined && product.deliveryAsset !== null && !deliveryAssetForProduct(product)) {
+  throw new HttpError(400, 'The secure delivery ZIP metadata is invalid.', 'invalid_delivery_asset');
+}
 
     }
   }
@@ -386,7 +429,9 @@ function mergeAdminStore(current, incoming) {
 
 module.exports = {
   assertSafeJson,
+  deliveryAssetForProduct,
   findProduct,
+  hasProductDelivery,
   isPlainObject,
   mergeAdminStore,
   parsePriceToMinor,

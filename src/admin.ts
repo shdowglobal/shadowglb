@@ -13,6 +13,15 @@ interface DeliveryItem extends JsonRecord {
   type?: string;
 }
 
+interface DeliveryAsset extends JsonRecord {
+  bucket: string;
+  path: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+  sha256: string;
+}
+
 interface Product extends JsonRecord {
   id: ProductId;
   name: string;
@@ -30,6 +39,7 @@ interface Product extends JsonRecord {
   deliveryLabel?: string;
   deliveryItems?: unknown;
   deliveryMessage?: string;
+  deliveryAsset?: unknown;
   origPrice?: string | number;
   sold?: string | number;
   active?: boolean;
@@ -73,6 +83,10 @@ interface SignedUploadResponse {
   method: "PUT";
   mimeType: string;
   maxBytes: number;
+}
+
+interface DeliveryUploadResponse {
+  deliveryAsset: DeliveryAsset;
 }
 
 interface Order extends JsonRecord {
@@ -119,6 +133,7 @@ class AdminApiError extends Error {
 const API_ROOT = "/api/admin";
 const DIRECT_UPLOAD_BYTES = 2.5 * 1024 * 1024;
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+const MAX_DELIVERY_UPLOAD_BYTES = 3 * 1024 * 1024;
 const ORDER_PAGE_SIZE = 50;
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -212,6 +227,11 @@ const adminApi = {
       method: "POST",
       body: JSON.stringify({ fileName, contentType, size }),
     }),
+  uploadDelivery: (productId: ProductId, fileName: string, dataBase64: string): Promise<DeliveryUploadResponse> =>
+    request<DeliveryUploadResponse>("/upload", {
+      method: "POST",
+      body: JSON.stringify({ uploadType: "delivery", productId, fileName, dataBase64 }),
+    }),
   orders: (limit: number, offset: number): Promise<OrdersResponse> =>
     request<OrdersResponse>(`/orders?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`),
 };
@@ -244,6 +264,30 @@ function normaliseUploadResponse(value: unknown): UploadResponse {
     mimeType: typeof value.mimeType === "string" ? value.mimeType : "application/octet-stream",
     size: typeof value.size === "number" ? value.size : 0,
   };
+}
+
+function productDeliveryAsset(product: Product): DeliveryAsset | null {
+  const value = product.deliveryAsset;
+  if (!isRecord(value)) return null;
+  if (
+    typeof value.bucket !== "string" ||
+    typeof value.path !== "string" ||
+    typeof value.fileName !== "string" ||
+    typeof value.contentType !== "string" ||
+    typeof value.size !== "number" ||
+    typeof value.sha256 !== "string"
+  ) return null;
+  return value as DeliveryAsset;
+}
+
+function normaliseDeliveryUploadResponse(value: unknown): DeliveryUploadResponse {
+  if (!isRecord(value) || !isRecord(value.deliveryAsset)) {
+    throw new AdminApiError("The secure delivery upload response was invalid.", 500, value);
+  }
+  const holder = { id: "delivery", name: "Delivery", deliveryAsset: value.deliveryAsset } as Product;
+  const deliveryAsset = productDeliveryAsset(holder);
+  if (!deliveryAsset) throw new AdminApiError("The secure delivery ZIP metadata was invalid.", 500, value);
+  return { deliveryAsset };
 }
 
 function normaliseOrdersResponse(value: unknown): OrdersResponse {
@@ -391,8 +435,8 @@ function productIssues(product: Product): ProductIssue[] {
     if (extras.some((item) => !validDeliveryUrl(item.url))) {
       issues.push({ field: "deliveryItems", message: "Every additional delivery option needs a valid HTTPS URL." });
     }
-    if (!validDeliveryUrl(primary) && !extras.some((item) => validDeliveryUrl(item.url))) {
-      issues.push({ field: "deliveryLink", message: "Add a primary link or at least one additional delivery option before selling." });
+    if (!validDeliveryUrl(primary) && !extras.some((item) => validDeliveryUrl(item.url)) && !productDeliveryAsset(product)) {
+      issues.push({ field: "deliveryLink", message: "Upload a secure ZIP, add a primary link, or add another delivery option before selling." });
     }
   }
   return issues;
@@ -705,6 +749,7 @@ function renderProductCard(product: Product, index: number): string {
   const types = knownTypes.includes(currentType) ? knownTypes : [currentType, ...knownTypes];
   const media = productMedia(product);
   const currentDeliveryType = String(product.deliveryType ?? "access");
+  const secureAsset = productDeliveryAsset(product);
   const deliveryTypes = [
     ["access", "Product / access link"],
     ["download", "Direct download"],
@@ -793,6 +838,11 @@ function renderProductCard(product: Product, index: number): string {
       <div class="field admin-field">
         <label for="product-${index}-delivery-label">Primary button label</label>
         <input class="field" id="product-${index}-delivery-label" name="deliveryLabel" type="text" maxlength="100" value="${escapeHtml(product.deliveryLabel)}" placeholder="Open your product">
+      </div>
+      <div class="field admin-field admin-field-wide">
+        <label for="product-${index}-delivery-zip">Secure delivery ZIP</label>
+        <input id="product-${index}-delivery-zip" type="file" accept=".zip,application/zip,application/x-zip-compressed" data-action="upload-product-delivery">
+        <small>${secureAsset ? `Attached: ${escapeHtml(secureAsset.fileName)} (${Math.ceil(secureAsset.size / 1024)} KB). This private file is released only after verified payment, or immediately when the product price is 0.` : "Upload the customer ZIP here. It is stored privately and never appears in public product media."}</small>
       </div>
       <div class="field admin-field admin-field-wide">
         <label for="product-${index}-delivery">Primary delivery link</label>
@@ -1342,6 +1392,26 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
     const restore = setBusy(input, true);
 
     try {
+      if (input.dataset.action === "upload-product-delivery") {
+        const index = productIndexFromElement(input);
+        const product = index === null ? null : productAt(index);
+        const file = files[0];
+        if (index === null || !product || !file) return;
+        if (!file.name.toLowerCase().endsWith(".zip")) throw new Error("Secure delivery files must be ZIP archives.");
+        if (file.size > MAX_DELIVERY_UPLOAD_BYTES) throw new Error("Secure delivery ZIPs must be 3 MB or smaller.");
+        toast(`Uploading ${file.name} to private delivery storage…`);
+        const dataBase64 = await fileToBase64(file);
+        const response = normaliseDeliveryUploadResponse(await adminApi.uploadDelivery(product.id, file.name, dataBase64));
+        const next = clone(store);
+        const nextProduct = productsFromStore(next)[index];
+        if (!nextProduct) throw new Error("The selected product no longer exists.");
+        nextProduct.deliveryAsset = response.deliveryAsset;
+        await persistStore(next);
+        renderDashboard();
+        toast(`${file.name} is attached for secure delivery.`, "success");
+        return;
+      }
+
       if (input.dataset.action === "upload-product-media") {
         const index = productIndexFromElement(input);
         const product = index === null ? null : productAt(index);
