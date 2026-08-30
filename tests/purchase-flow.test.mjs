@@ -6,6 +6,8 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const checkout = require('../api/checkout.js');
 const checkoutSession = require('../api/checkout-session.js');
+const claimFree = require('../api/claim-free.js');
+const deliveryDownload = require('../api/delivery-download.js');
 const stripeWebhook = require('../api/stripe-webhook.js');
 
 function responseRecorder() {
@@ -155,6 +157,131 @@ test('server purchase path prices checkout, verifies payment, records delivery, 
       emailSent: false,
     });
     assert.equal(calls.filter((call) => call.href === 'https://api.stripe.com/v1/checkout/sessions').length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const key of Object.keys(process.env)) {
+      if (!(key in originalEnv)) delete process.env[key];
+    }
+    Object.assign(process.env, originalEnv);
+  }
+});
+
+test('paid delivery endpoint verifies the Stripe session and streams the exact private ZIP filename', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalEnv = { ...process.env };
+  const zip = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x53, 0x48, 0x41, 0x44, 0x4f, 0x57]);
+  const sha256 = crypto.createHash('sha256').update(zip).digest('hex');
+  const product = {
+    id: 'operator-stack-v1',
+    name: 'SHADOW // OPERATOR STACK V1',
+    price: '59',
+    active: true,
+    deliveryAsset: {
+      bucket: 'shadowglb-deliveries',
+      path: 'releases/operator-stack-v1/SHADOW_OPERATOR_STACK_V1_FINAL.zip',
+      fileName: 'SHADOW_OPERATOR_STACK_V1_FINAL.zip',
+      contentType: 'application/zip',
+      size: zip.length,
+      sha256,
+    },
+  };
+  try {
+    Object.assign(process.env, {
+      NODE_ENV: 'production',
+      SUPABASE_URL: 'https://project.supabase.co',
+      SUPABASE_ANON_KEY: 'anon_unit_test',
+      SUPABASE_SERVICE_ROLE_KEY: 'service_role_unit_test',
+      STRIPE_SECRET_KEY: 'sk_test_unit_only',
+    });
+    globalThis.fetch = async (url) => {
+      const href = String(url);
+      if (href.startsWith('https://project.supabase.co/rest/v1/shadowgbl_store')) {
+        return jsonResponse([{ id: 'store', data: { products: [product] }, updated_at: '2026-08-30T12:00:00.000Z' }]);
+      }
+      if (href === 'https://api.stripe.com/v1/checkout/sessions/cs_test_stackpaid') {
+        return jsonResponse({
+          id: 'cs_test_stackpaid',
+          payment_status: 'paid',
+          amount_total: 5900,
+          metadata: { product_id: product.id, unit_amount: '5900', currency: 'gbp' },
+        });
+      }
+      if (href.includes('/storage/v1/object/shadowglb-deliveries/releases/operator-stack-v1/SHADOW_OPERATOR_STACK_V1_FINAL.zip')) {
+        return new Response(zip, { status: 200, headers: { 'content-type': 'application/zip', 'content-length': String(zip.length) } });
+      }
+      throw new Error(`Unexpected request: ${href}`);
+    };
+
+    const headers = new Map();
+    const response = {
+      statusCode: 200,
+      body: Buffer.alloc(0),
+      setHeader(name, value) { headers.set(String(name).toLowerCase(), value); },
+      end(value = '') { this.body = Buffer.isBuffer(value) ? value : Buffer.from(String(value)); },
+    };
+    await deliveryDownload({
+      method: 'GET',
+      headers: {},
+      query: { product_id: product.id, session_id: 'cs_test_stackpaid' },
+    }, response);
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.body, zip);
+    assert.equal(headers.get('content-type'), 'application/zip');
+    assert.equal(headers.get('content-disposition'), 'attachment; filename="SHADOW_OPERATOR_STACK_V1_FINAL.zip"');
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const key of Object.keys(process.env)) {
+      if (!(key in originalEnv)) delete process.env[key];
+    }
+    Object.assign(process.env, originalEnv);
+  }
+});
+
+test('Research Operator Lite unlocks separately for free and cannot expose the paid stack', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalEnv = { ...process.env };
+  const asset = (fileName, size, sha256) => ({
+    bucket: 'shadowglb-deliveries',
+    path: `releases/${fileName}`,
+    fileName,
+    contentType: 'application/zip',
+    size,
+    sha256,
+  });
+  const products = [
+    { id: 'research-operator-lite', name: 'SHADOW // RESEARCH OPERATOR LITE', price: '0', active: true, deliveryAsset: asset('SHADOW_RESEARCH_OPERATOR_LITE_FINAL.zip', 5543, 'b'.repeat(64)) },
+    { id: 'operator-stack-v1', name: 'SHADOW // OPERATOR STACK V1', price: '59', active: true, deliveryAsset: asset('SHADOW_OPERATOR_STACK_V1_FINAL.zip', 125785, 'a'.repeat(64)) },
+  ];
+  try {
+    Object.assign(process.env, {
+      NODE_ENV: 'production',
+      VERCEL_ENV: 'production',
+      SITE_URL: 'https://www.shadowglb.com',
+      SUPABASE_URL: 'https://project.supabase.co',
+      SUPABASE_ANON_KEY: 'anon_unit_test',
+      SUPABASE_SERVICE_ROLE_KEY: 'service_role_unit_test',
+    });
+    globalThis.fetch = async (url) => {
+      if (String(url).startsWith('https://project.supabase.co/rest/v1/shadowgbl_store')) {
+        return jsonResponse([{ id: 'store', data: { products }, updated_at: '2026-08-30T12:00:00.000Z' }]);
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    };
+
+    const request = (productId) => ({
+      method: 'POST',
+      headers: { origin: 'https://www.shadowglb.com', host: 'www.shadowglb.com', 'x-forwarded-proto': 'https' },
+      body: { productId },
+    });
+    const freeResponse = responseRecorder();
+    await claimFree(request('research-operator-lite'), freeResponse);
+    assert.equal(freeResponse.statusCode, 200);
+    assert.equal(freeResponse.json().deliveryUrl, 'https://www.shadowglb.com/api/delivery-download?product_id=research-operator-lite');
+
+    const paidResponse = responseRecorder();
+    await claimFree(request('operator-stack-v1'), paidResponse);
+    assert.equal(paidResponse.statusCode, 422);
+    assert.equal(paidResponse.json().error.code, 'not_free');
   } finally {
     globalThis.fetch = originalFetch;
     for (const key of Object.keys(process.env)) {
