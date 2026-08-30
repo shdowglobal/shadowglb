@@ -229,7 +229,8 @@ function secureAssetDeliveryItem(product, options = {}) {
   if (!asset || !siteUrl) return null;
   let productId;
   try { productId = validateProductId(product.id); } catch (_error) { return null; }
-  const url = new URL('/api/delivery-download', siteUrl);
+  const url = new URL('/api/checkout-session', siteUrl);
+  url.searchParams.set('delivery', '1');
   url.searchParams.set('product_id', productId);
   if (typeof options.sessionId === 'string' && options.sessionId) url.searchParams.set('session_id', options.sessionId);
   return {
