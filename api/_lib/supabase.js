@@ -43,7 +43,12 @@ async function supabaseRequest(path, options = {}) {
     try { payload = JSON.parse(text); } catch (_error) { payload = text; }
   }
   if (!response.ok) {
-    const upstreamMessage = payload && typeof payload === 'object' && (payload.message || payload.error_description || payload.msg);
+    const upstreamMessage = payload && typeof payload === 'object' && (
+      payload.message
+      || payload.error_description
+      || payload.msg
+      || (typeof payload.error === 'string' ? payload.error : '')
+    );
     throw new UpstreamError('Supabase', response.status, upstreamMessage || 'Supabase request failed.');
   }
   return payload;
@@ -155,7 +160,11 @@ async function ensurePrivateDeliveryBucket() {
   try {
     await supabaseRequest(`/storage/v1/bucket/${encodeURIComponent(bucket)}`, { service: true });
   } catch (error) {
-    if (!(error instanceof UpstreamError) || error.status !== 404) throw error;
+    const bucketIsMissing = error instanceof UpstreamError && (
+      error.status === 404
+      || (error.status === 400 && /bucket\s+not\s+found/i.test(error.message))
+    );
+    if (!bucketIsMissing) throw error;
     await supabaseRequest('/storage/v1/bucket', {
       service: true,
       method: 'POST',
