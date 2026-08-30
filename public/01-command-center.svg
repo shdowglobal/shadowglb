@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">SHADOW Operator Stack V1 Command Center</title>
+  <desc id="desc">Preview of the local Command Center dashboard included with Operator Stack V1.</desc>
+  <defs><linearGradient id="glow" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#00e676" stop-opacity=".16"/><stop offset=".55" stop-color="#00e676" stop-opacity="0"/></linearGradient></defs>
+  <rect width="1440" height="900" fill="#080809"/><circle cx="1260" cy="30" r="620" fill="url(#glow)"/>
+  <rect x="45" y="44" width="1350" height="812" rx="24" fill="#0e0e10" stroke="#28282c"/>
+  <rect x="45" y="44" width="1350" height="72" rx="24" fill="#101012"/><rect x="45" y="92" width="1350" height="24" fill="#101012"/>
+  <rect x="78" y="66" width="30" height="30" rx="8" fill="#00e676"/><rect x="88" y="76" width="10" height="10" rx="2" fill="#04120a" transform="rotate(45 93 81)"/>
+  <text x="125" y="87" fill="#f2f2f3" font-family="Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="2">SHADOW <tspan fill="#00e676">// OPERATOR STACK</tspan></text>
+  <rect x="1181" y="65" width="175" height="34" rx="17" fill="#151517" stroke="#2a2a2e"/><text x="1269" y="87" text-anchor="middle" fill="#8b8b90" font-family="monospace" font-size="12" letter-spacing="1">PROJECT // LOCAL</text>
+  <g font-family="monospace" font-size="12" letter-spacing="1.4"><text x="78" y="145" fill="#00e676">COMMAND</text><text x="205" y="145" fill="#77777d">OPERATORS</text><text x="338" y="145" fill="#77777d">MISSIONS</text><text x="457" y="145" fill="#77777d">HANDOFFS</text><text x="580" y="145" fill="#77777d">PROJECT</text><text x="687" y="145" fill="#77777d">VAULT</text><text x="774" y="145" fill="#77777d">EXPORT</text></g>
+  <line x1="45" y1="164" x2="1395" y2="164" stroke="#1e1e21"/><line x1="75" y1="163" x2="151" y2="163" stroke="#00e676" stroke-width="3"/>
+  <text x="88" y="220" fill="#00e676" font-family="monospace" font-size="12" letter-spacing="3">COMMAND // STATUS</text>
+  <text x="88" y="273" fill="#f2f2f3" font-family="Arial,sans-serif" font-size="44" font-weight="700">Operator Command</text>
+  <text x="88" y="312" fill="#a8a8ad" font-family="Arial,sans-serif" font-size="19">Set project context once. Deploy operators with the job, evidence and objective already attached.</text>
+  <g transform="translate(88 352)">
+    <g><rect width="285" height="126" rx="14" fill="#121214" stroke="#26262a"/><text x="22" y="32" fill="#74747a" font-family="monospace" font-size="12" letter-spacing="2">OPERATORS</text><text x="22" y="82" fill="#f2f2f3" font-family="Arial" font-size="42" font-weight="700">8</text><text x="62" y="81" fill="#00e676" font-family="monospace" font-size="12">READY</text></g>
+    <g transform="translate(303)"><rect width="285" height="126" rx="14" fill="#121214" stroke="#26262a"/><text x="22" y="32" fill="#74747a" font-family="monospace" font-size="12" letter-spacing="2">MISSIONS</text><text x="22" y="82" fill="#f2f2f3" font-family="Arial" font-size="42" font-weight="700">6</text><text x="62" y="81" fill="#00e676" font-family="monospace" font-size="12">AVAILABLE</text></g>
+    <g transform="translate(606)"><rect width="285" height="126" rx="14" fill="#121214" stroke="#26262a"/><text x="22" y="32" fill="#74747a" font-family="monospace" font-size="12" letter-spacing="2">VAULT</text><text x="22" y="82" fill="#f2f2f3" font-family="Arial" font-size="42" font-weight="700">LOCAL</text></g>
+    <g transform="translate(909)"><rect width="285" height="126" rx="14" fill="#121214" stroke="#26262a"/><text x="22" y="32" fill="#74747a" font-family="monospace" font-size="12" letter-spacing="2">BACKUP</text><text x="22" y="82" fill="#f2f2f3" font-family="Arial" font-size="30" font-weight="700">JSON + MD</text></g>
+  </g>
+  <text x="88" y="542" fill="#74747a" font-family="monospace" font-size="12" letter-spacing="3">START HERE</text><line x1="205" y1="538" x2="1282" y2="538" stroke="#202024"/>
+  <g transform="translate(88 572)">
+    <g><rect width="386" height="192" rx="14" fill="#121214" stroke="#26262a"/><text x="24" y="35" fill="#00e676" font-family="monospace" font-size="12">STEP 01</text><text x="24" y="82" fill="#f2f2f3" font-family="Arial" font-size="25" font-weight="700">Pick a mission</text><text x="24" y="117" fill="#85858a" font-family="Arial" font-size="16">Six guided sequences route the</text><text x="24" y="143" fill="#85858a" font-family="Arial" font-size="16">right operators in the right order.</text></g>
+    <g transform="translate(404)"><rect width="386" height="192" rx="14" fill="#121214" stroke="#26262a"/><text x="24" y="35" fill="#00e676" font-family="monospace" font-size="12">STEP 02</text><text x="24" y="82" fill="#f2f2f3" font-family="Arial" font-size="25" font-weight="700">Deploy an operator</text><text x="24" y="117" fill="#85858a" font-family="Arial" font-size="16">Generate a briefing for ChatGPT,</text><text x="24" y="143" fill="#85858a" font-family="Arial" font-size="16">Claude or supported Codex work.</text></g>
+    <g transform="translate(808)"><rect width="386" height="192" rx="14" fill="#121214" stroke="#00e676" stroke-opacity=".35"/><text x="24" y="35" fill="#00e676" font-family="monospace" font-size="12">STEP 03</text><text x="24" y="82" fill="#f2f2f3" font-family="Arial" font-size="25" font-weight="700">Hand off the result</text><text x="24" y="117" fill="#85858a" font-family="Arial" font-size="16">Carry evidence, assumptions and</text><text x="24" y="143" fill="#85858a" font-family="Arial" font-size="16">decisions into the next operator.</text></g>
+  </g>
+  <text x="88" y="821" fill="#505056" font-family="monospace" font-size="11" letter-spacing="2">ACTUAL COMMAND CENTER PREVIEW • LOCAL-FIRST • NO SHADOW ACCOUNT</text>
+</svg>
+
