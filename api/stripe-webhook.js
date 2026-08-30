@@ -1,6 +1,6 @@
 'use strict';
 
-const { getStripeWebhookSecret } = require('./_lib/env');
+const { getSiteUrl, getStripeWebhookSecret } = require('./_lib/env');
 const { sendDeliveryEmail } = require('./_lib/email');
 const { allowMethods, header, HttpError, readRawBody, sendError, sendJson } = require('./_lib/http');
 const { getStoreRow, insertOrderOnce, markDeliveryEmailSent } = require('./_lib/supabase');
@@ -40,7 +40,11 @@ async function handler(req, res) {
     }
     const row = await getStoreRow();
     const product = findProduct(row.data, productId, { includeInactive: true });
-    const delivery = productDeliveryPackage(product, row.data, { includePrivateNetwork: true });
+    const delivery = productDeliveryPackage(product, row.data, {
+      includePrivateNetwork: true,
+      siteUrl: getSiteUrl(req),
+      sessionId: session.id,
+    });
     const candidateEmail = (session.customer_details && session.customer_details.email) || session.customer_email || null;
     const buyerEmail = validateEmail(candidateEmail) ? candidateEmail.trim().toLowerCase() : null;
     const now = new Date().toISOString();

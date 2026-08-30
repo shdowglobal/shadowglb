@@ -4,7 +4,7 @@ const { getSiteUrl } = require('./_lib/env');
 const { allowMethods, assertSameOrigin, HttpError, readJson, sendError, sendJson } = require('./_lib/http');
 const { getStoreRow } = require('./_lib/supabase');
 const { createCheckoutSession } = require('./_lib/stripe');
-const { findProduct, parsePriceToMinor, productDeliveryUrl, productName, validateCheckoutBody, validateCurrency } = require('./_lib/store');
+const { findProduct, hasProductDelivery, parsePriceToMinor, productName, validateCheckoutBody, validateCurrency } = require('./_lib/store');
 
 async function handler(req, res) {
   try {
@@ -16,7 +16,7 @@ async function handler(req, res) {
     const name = productName(product);
     const unitAmount = parsePriceToMinor(product.price);
     const currency = validateCurrency(product.currency || 'gbp');
-    if (!productDeliveryUrl(product)) {
+    if (!hasProductDelivery(product)) {
       throw new HttpError(422, 'This product is not ready for secure delivery.', 'delivery_not_configured');
     }
     const session = await createCheckoutSession({
