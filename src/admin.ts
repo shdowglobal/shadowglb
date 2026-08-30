@@ -228,9 +228,9 @@ const adminApi = {
       body: JSON.stringify({ fileName, contentType, size }),
     }),
   uploadDelivery: (productId: ProductId, fileName: string, dataBase64: string): Promise<DeliveryUploadResponse> =>
-    request<DeliveryUploadResponse>("/delivery-upload", {
+    request<DeliveryUploadResponse>("/upload", {
       method: "POST",
-      body: JSON.stringify({ productId, fileName, dataBase64 }),
+      body: JSON.stringify({ uploadType: "delivery", productId, fileName, dataBase64 }),
     }),
   orders: (limit: number, offset: number): Promise<OrdersResponse> =>
     request<OrdersResponse>(`/orders?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`),
