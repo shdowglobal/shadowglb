@@ -1182,7 +1182,7 @@ body:has(.ops-announce) .ops-nav { top: 34px; }
   max-width: 970px;
   margin: 0;
   color: var(--ops-ink);
-  font: 700 clamp(4.6rem, 10.8vw, 9.7rem)/.8 var(--font-display);
+  font: 700 clamp(4.25rem, 9.8vw, 9rem)/.82 var(--font-display);
   letter-spacing: -.09em;
   text-wrap: balance;
 }
@@ -1357,7 +1357,7 @@ body:has(.ops-announce) .ops-nav { top: 34px; }
   .ops-grid { background-size: 52px 52px; }
   .ops-hero-copy { width: 100%; }
   .ops-kicker { margin-bottom: 34px; font-size: .6rem; }
-  .ops-hero h1 { max-width: 640px; font-size: clamp(4.25rem, 17.4vw, 7.65rem); line-height: .8; }
+  .ops-hero h1 { max-width: 640px; font-size: clamp(3.95rem, 16vw, 7rem); line-height: .82; }
   .ops-hero-copy > p { max-width: 560px; margin-top: 32px; font-size: clamp(.98rem, 3.8vw, 1.22rem); line-height: 1.65; }
   .ops-hero-actions { width: 100%; margin-top: 42px; }
   .ops-hero-actions .ops-button { min-height: 82px; padding: 0 30px; }
@@ -1402,7 +1402,7 @@ body:has(.ops-announce) .ops-nav { top: 34px; }
   .ops-menu-button { width: 52px; height: 52px; border-radius: 16px; }
   .ops-hero { min-height: max(820px, 100svh); padding: 96px 18px 132px; }
   .ops-kicker { margin-bottom: 28px; font-size: .54rem; letter-spacing: .145em; }
-  .ops-hero h1 { font-size: clamp(3.9rem, 20.5vw, 5.8rem); }
+  .ops-hero h1 { font-size: clamp(3.5rem, 18.5vw, 5.3rem); }
   .ops-hero-copy > p { margin-top: 27px; font-size: .94rem; }
   .ops-hero-actions { margin-top: 34px; }
   .ops-hero-actions .ops-button { min-height: 70px; padding-inline: 22px; border-radius: 18px; }
