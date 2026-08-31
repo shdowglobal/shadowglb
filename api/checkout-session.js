@@ -6,7 +6,7 @@ const { getSiteUrl } = require('./_lib/env');
 const { downloadDeliveryObject, getStoreRow } = require('./_lib/supabase');
 const { retrieveCheckoutSession } = require('./_lib/stripe');
 const {
-  deliveryAssetForProduct,
+  deliveryAssetsForProduct,
   findProduct,
   parsePriceToMinor,
   productDeliveryPackage,
@@ -34,8 +34,13 @@ async function sendDelivery(req, res) {
   const productId = validateProductId(queryParam(req, 'product_id'));
   const row = await getStoreRow();
   const product = findProduct(row.data, productId, { includeInactive: true });
-  const asset = deliveryAssetForProduct(product);
-  if (!asset) throw new HttpError(404, 'The delivery file is not configured.', 'delivery_not_configured');
+  const assets = deliveryAssetsForProduct(product);
+  const assetIndexText = queryParam(req, 'asset');
+  const assetIndex = assetIndexText === null || assetIndexText === '' ? 0 : Number(assetIndexText);
+  if (!Number.isSafeInteger(assetIndex) || assetIndex < 0 || assetIndex >= assets.length) {
+    throw new HttpError(404, 'The delivery file is not configured.', 'delivery_not_configured');
+  }
+  const asset = assets[assetIndex];
   const price = parsePriceToMinor(product.price, { allowZero: true });
   if (price > 0) await verifyPaidAccess(queryParam(req, 'session_id'), productId);
 

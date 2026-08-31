@@ -218,9 +218,19 @@ async function downloadDeliveryObject(path, bucket = getDeliveryBucket()) {
   return buffer;
 }
 
+async function deleteDeliveryObject(path, bucket = getDeliveryBucket()) {
+  await supabaseRequest(`/storage/v1/object/${encodeURIComponent(bucket)}`, {
+    service: true,
+    method: 'DELETE',
+    json: { prefixes: [path] },
+    timeoutMs: 30000,
+  });
+}
+
 module.exports = {
   UpstreamError,
   createSignedMediaUpload,
+  deleteDeliveryObject,
   downloadDeliveryObject,
   ensurePrivateDeliveryBucket,
   fetchWithTimeout,

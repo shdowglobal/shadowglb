@@ -11,17 +11,24 @@ export interface Product {
   name: string;
   category: string;
   price: string;
+  subtitle?: string;
   desc?: string;
+  description?: string;
   tags?: string[];
   includes?: string[];
   badge?: string;
   ptype?: ProductType | string;
+  ctaText?: string;
+  deliveryNoteTitle?: string;
+  deliveryNoteText?: string;
   media?: MediaItem[];
   imageUrl?: string;
   origPrice?: string;
   sold?: string;
   active?: boolean;
+  visible?: boolean;
   featured?: boolean;
+  featuredOrder?: number;
   checkoutReady?: boolean;
 }
 
@@ -57,6 +64,33 @@ export interface StoreContent {
   landingEyebrow?: string;
   landingTitle?: string;
   landingSub?: string;
+  landingCta?: string;
+  featuredEyebrow?: string;
+  featuredTitle?: string;
+  featuredSub?: string;
+  archiveEyebrow?: string;
+  archiveTitle?: string;
+  archiveSub?: string;
+  kitsTitle?: string;
+  kitsSub?: string;
+  systemsTitle?: string;
+  filesTitle?: string;
+  filesLandingSub?: string;
+  wallTitle?: string;
+  wallLandingSub?: string;
+  intelEyebrow?: string;
+  intelTitle?: string;
+  intelSub?: string;
+  intelCta?: string;
+  buildEyebrow?: string;
+  buildTitle?: string;
+  buildSub?: string;
+  networkEyebrow?: string;
+  networkTitle?: string;
+  networkSub?: string;
+  contactEyebrow?: string;
+  contactTitle?: string;
+  contactSub?: string;
   socials?: string[];
 }
 

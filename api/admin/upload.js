@@ -2,8 +2,9 @@
 
 const crypto = require('crypto');
 const { authenticateAdmin } = require('../_lib/auth');
+const { getDeliveryBucket } = require('../_lib/env');
 const { allowMethods, assertSameOrigin, HttpError, readJson, sendError, sendJson } = require('../_lib/http');
-const { createSignedMediaUpload, uploadDeliveryObject, uploadMediaObject } = require('../_lib/supabase');
+const { createSignedMediaUpload, deleteDeliveryObject, uploadDeliveryObject, uploadMediaObject } = require('../_lib/supabase');
 const { validateProductId } = require('../_lib/store');
 
 const MIME_EXTENSIONS = new Map([
@@ -48,7 +49,8 @@ async function uploadDelivery(body, res) {
   const productId = validateProductId(body.productId);
   const fileName = validateDeliveryFileName(body.fileName);
   const buffer = decodeZip(body.dataBase64);
-  const path = `releases/${productId}/${fileName}`;
+  const safeStorageName = fileName.replace(/[^A-Za-z0-9._-]+/g, '_');
+  const path = `releases/${productId}/${crypto.randomUUID()}-${safeStorageName}`;
   const stored = await uploadDeliveryObject(path, buffer, 'application/zip');
   sendJson(res, 201, {
     deliveryAsset: {
@@ -60,6 +62,24 @@ async function uploadDelivery(body, res) {
       sha256: crypto.createHash('sha256').update(buffer).digest('hex'),
     },
   });
+}
+
+async function removeDelivery(body, res) {
+  const productId = validateProductId(body.productId);
+  const fileName = validateDeliveryFileName(body.fileName);
+  const bucket = getDeliveryBucket();
+  if (body.bucket !== undefined && body.bucket !== bucket) {
+    throw new HttpError(400, 'The secure delivery bucket is invalid.', 'invalid_delivery_bucket');
+  }
+  const path = typeof body.path === 'string' ? body.path.trim() : '';
+  const expectedPrefix = `releases/${productId}/`;
+  const safeStorageName = fileName.replace(/[^A-Za-z0-9._-]+/g, '_');
+  const matchesFile = path === `${expectedPrefix}${safeStorageName}` || path.endsWith(`-${safeStorageName}`);
+  if (!path.startsWith(expectedPrefix) || path.includes('..') || !matchesFile) {
+    throw new HttpError(400, 'The secure delivery file path is invalid.', 'invalid_delivery_path');
+  }
+  await deleteDeliveryObject(path, bucket);
+  sendJson(res, 200, { removed: true });
 }
 
 function validateUpload(body) {
@@ -93,6 +113,10 @@ async function handler(req, res) {
     assertSameOrigin(req);
     await authenticateAdmin(req, res);
     const body = await readJson(req, 5 * 1024 * 1024);
+    if (body.uploadType === 'delivery-delete') {
+      await removeDelivery(body, res);
+      return;
+    }
     if (body.uploadType === 'delivery') {
       await uploadDelivery(body, res);
       return;

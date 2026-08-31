@@ -13,6 +13,7 @@ const {
   validateCheckoutBody,
 } = require('../api/_lib/store.js');
 const { getMediaBucket, getSiteUrl, isAdminEmailAllowed, parseAdminEmails } = require('../api/_lib/env.js');
+const { deleteDeliveryObject } = require('../api/_lib/supabase.js');
 const { verifyStripeSignature } = require('../api/_lib/stripe.js');
 
 test('public store sanitization exposes display data but never checkout or delivery fields', () => {
@@ -112,6 +113,63 @@ test('private ZIP assets are checkout-ready, stay out of public data, and create
   assert.equal(delivery.items[0].url, 'https://shadowglb.com/api/checkout-session?delivery=1&product_id=operator-stack-v1&session_id=cs_live_customer123');
 });
 
+test('multiple private ZIPs stay server-only and receive separate verified delivery routes', () => {
+  const product = {
+    id: 'multi-file-kit',
+    name: 'Multi-file kit',
+    price: '19',
+    active: true,
+    visible: true,
+    featured: true,
+    featuredOrder: 2,
+    deliveryAssets: [
+      { bucket: 'shadowglb-deliveries', path: 'releases/multi-file-kit/one.zip', fileName: 'one.zip', contentType: 'application/zip', size: 20, sha256: 'a'.repeat(64) },
+      { bucket: 'shadowglb-deliveries', path: 'releases/multi-file-kit/two.zip', fileName: 'two.zip', contentType: 'application/zip', size: 30, sha256: 'b'.repeat(64) },
+    ],
+  };
+  const validated = validateAdminStoreInput({ products: [product] });
+  assert.equal(validated.products[0].deliveryAssets.length, 2);
+  const publicStore = sanitizePublicStore({ products: [product] });
+  assert.equal(publicStore.products[0].deliveryAssets, undefined);
+  assert.equal(publicStore.products[0].featuredOrder, 2);
+  assert.equal(publicStore.products[0].checkoutReady, true);
+  const delivery = productDeliveryPackage(product, {}, { siteUrl: 'https://shadowglb.com', sessionId: 'cs_paid' });
+  assert.equal(delivery.items.length, 2);
+  assert.match(delivery.items[0].url, /asset=0/);
+  assert.match(delivery.items[1].url, /asset=1/);
+  assert.ok(delivery.items.every((item) => item.url.includes('session_id=cs_paid')));
+});
+
+test('private delivery deletion uses the Supabase bulk object API without exposing a public URL', async () => {
+  const original = {
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  };
+  const originalFetch = globalThis.fetch;
+  let request = null;
+  try {
+    process.env.SUPABASE_URL = 'https://project.supabase.co';
+    process.env.SUPABASE_ANON_KEY = 'anon-test';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-test';
+    globalThis.fetch = async (url, init) => {
+      request = { url: String(url), init };
+      return new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
+    };
+    await deleteDeliveryObject('releases/qa-test/file.zip', 'shadowglb-deliveries');
+    assert.equal(request.url, 'https://project.supabase.co/storage/v1/object/shadowglb-deliveries');
+    assert.equal(request.init.method, 'DELETE');
+    assert.deepEqual(JSON.parse(request.init.body), { prefixes: ['releases/qa-test/file.zip'] });
+    assert.equal(request.init.headers.Authorization, 'Bearer service-test');
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test('Stripe webhook signatures require a matching HMAC and a fresh timestamp', () => {
   const secret = 'whsec_unit_test_only';
   const timestamp = 1_800_000_000;
@@ -199,6 +257,7 @@ test('checkout and store validation reject ambiguous IDs, prices, emails, and du
   assert.throws(() => validateAdminStoreInput({ content: { telegramUrl: 'https://example.com/not-telegram' } }), /Telegram channel/i);
   assert.throws(() => validateAdminStoreInput({ content: { privateTelegramUrl: 'https://example.com/not-private' } }), /private Telegram/i);
   assert.throws(() => validateAdminStoreInput({ products: [{ id: 'bad-delivery', name: 'Bad', price: '9.99', deliveryItems: [{ label: 'Broken', url: 'javascript:alert(1)' }] }] }), /delivery item/i);
+  assert.throws(() => validateAdminStoreInput({ products: [{ id: 'bad-order', name: 'Bad order', price: '9.99', deliveryLink: 'https://example.com', featuredOrder: 1000 }] }), /featured position/i);
 });
 
 test('active free products can be published and expose a safe claim action', () => {

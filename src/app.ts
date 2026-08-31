@@ -38,6 +38,16 @@ export function formatMoney(value: string | number): string {
 
 export function flagshipFirst(products: Product[]): Product[] {
   return [...products].sort((left, right) => {
+    const leftFeatured = left.featured === true;
+    const rightFeatured = right.featured === true;
+    if (leftFeatured !== rightFeatured) return Number(rightFeatured) - Number(leftFeatured);
+    if (leftFeatured && rightFeatured) {
+      const leftOrder = Number(left.featuredOrder);
+      const rightOrder = Number(right.featuredOrder);
+      if (Number.isFinite(leftOrder) || Number.isFinite(rightOrder)) {
+        return (Number.isFinite(leftOrder) ? leftOrder : 999) - (Number.isFinite(rightOrder) ? rightOrder : 999);
+      }
+    }
     const leftFlagship = /^flagship$/i.test(String(left.badge || '').trim());
     const rightFlagship = /^flagship$/i.test(String(right.badge || '').trim());
     return Number(rightFlagship) - Number(leftFlagship);
@@ -370,9 +380,10 @@ function renderCollectionGrid(products: Product[], target: HTMLElement): void {
 
 function renderHome(store: PublicStore): void {
   if (!app) return;
-  const products = store.products.filter((product) => !isSystemsProduct(product) && !isFileProduct(product));
+  const products = store.products.filter((product) => product.visible !== false && !isSystemsProduct(product) && !isFileProduct(product));
   const categories = [...new Set(products.map((product) => product.category).filter(Boolean))];
-  const featured = flagshipFirst(products).slice(0, 8);
+  const markedFeatured = products.filter((product) => product.featured === true);
+  const featured = flagshipFirst(markedFeatured.length ? markedFeatured : products).slice(0, 8);
   const allLabel = store.content.allLabel || 'All';
   const content = `<section class="hero home-hero">
       <div class="hero-grid" aria-hidden="true"></div>
@@ -400,7 +411,7 @@ function renderHome(store: PublicStore): void {
 
 function renderSystems(store: PublicStore): void {
   if (!app) return;
-  const products = store.products.filter(isSystemsProduct);
+  const products = store.products.filter((product) => product.visible !== false && isSystemsProduct(product));
   const categories = [...new Set(products.map((product) => product.category).filter(Boolean))];
   const content = `<section class="route-intro compact-intro"><h1 class="sr-only">Systems &amp; Templates</h1><span class="eyebrow">Systems &amp; Templates // Operator builds</span><p>${escapeHtml(store.content.systemsSub || 'Working builds and ready-to-run templates. Plug them into the operation and move.')}</p></section>
     <section class="filter-section route-filters" aria-label="Systems filters"><div class="filter-chips"><button class="chip is-active" type="button" data-category="">All builds</button>${categories.map((category) => `<button class="chip" type="button" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`).join('')}</div></section>
@@ -422,7 +433,7 @@ function renderSystems(store: PublicStore): void {
 
 function renderFiles(store: PublicStore): void {
   if (!app) return;
-  const products = store.products.filter(isFileProduct);
+  const products = store.products.filter((product) => product.visible !== false && isFileProduct(product));
   const content = `<section class="route-intro compact-intro files-intro"><h1 class="sr-only">The Files</h1><span class="eyebrow files-eyebrow">Classified // Operator Intel</span><p>${escapeHtml(store.content.filesSub || 'Field-tested operations, documented and sealed.')}</p></section>
     <section class="catalogue section-wrap route-catalogue"><div class="section-heading"><div><span>Case archive</span><h2 class="sr-only">Available files</h2></div><div class="rail-controls"><button type="button" data-rail-move="-1" aria-label="Previous file">←</button><button type="button" data-rail-move="1" aria-label="Next file">→</button></div></div>
     ${products.length ? `<div class="dossier-rail">${products.map((product, index) => {
@@ -520,6 +531,7 @@ function renderContact(store: PublicStore): void {
   if (!app) return;
   const email = store.contactEmail || DEFAULT_CONTACT;
   const phone = (store.content.contactPhone || '').trim();
+  const whatsappNumber = phone.replace(/\D/g, '');
   const socials = parseSocials(store.content.socials);
   const content = `<section class="route-intro"><h1 class="sr-only">Contact</h1><span class="eyebrow">Contact // Reach the operator</span><p>Real questions get real answers. Pick whichever works for you.</p></section>
     <section class="contact-wrap">
@@ -527,8 +539,8 @@ function renderContact(store: PublicStore): void {
         <span class="contact-label">Email</span>
         <strong>${escapeHtml(email)}</strong>
       </a>
-      ${phone ? `<a class="contact-card reveal" href="tel:${escapeHtml(phone.replace(/[^\d+]/g, ''))}">
-        <span class="contact-label">Phone</span>
+      ${whatsappNumber ? `<a class="contact-card reveal" href="https://wa.me/${escapeHtml(whatsappNumber)}" target="_blank" rel="noopener noreferrer">
+        <span class="contact-label">WhatsApp</span>
         <strong>${escapeHtml(phone)}</strong>
       </a>` : ''}
       ${socials.length ? `<div class="contact-socials reveal">
@@ -539,7 +551,7 @@ function renderContact(store: PublicStore): void {
   app.innerHTML = chrome('contact', content, store);
   bindChrome();
   installReveals();
-  setMeta('Contact — ShadowGLB', 'Get in touch with ShadowGLB — email, phone, and socials.');
+  setMeta('Contact — ShadowGLB', 'Get in touch with ShadowGLB — email, WhatsApp, and socials.');
 }
 
 function renderProduct(store: PublicStore): void {
@@ -554,7 +566,7 @@ function renderProduct(store: PublicStore): void {
     return;
   }
   const media = mediaFor(product);
-  const collection = store.products.filter((item) => isSystemsProduct(item) === isSystemsProduct(product));
+  const collection = store.products.filter((item) => item.visible !== false && isSystemsProduct(item) === isSystemsProduct(product));
   const position = collection.findIndex((item) => String(item.id) === String(product.id));
   const original = Number.parseFloat(product.origPrice || '');
   const current = Number.parseFloat(product.price || '0');
@@ -570,14 +582,15 @@ function renderProduct(store: PublicStore): void {
         ${isFileProduct(product) ? `<div class="file-dossier"><span class="file-dossier-case">Case File // TF-${caseNumber(product)}</span></div>` : ''}
         <div class="product-kicker"><span>${escapeHtml(product.ptype || 'Playbook')}</span><i>${escapeHtml(product.category)}</i></div>
         <h1>${escapeHtml(product.name)}</h1>
-        <p class="product-description">${escapeHtml(product.desc || '')}</p>
+        ${product.subtitle ? `<p class="product-subtitle">${escapeHtml(product.subtitle)}</p>` : ''}
+        <p class="product-description">${escapeHtml(product.description || product.desc || '')}</p>
         ${product.tags?.length ? `<div class="tag-list">${product.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
         ${product.includes?.length ? `<div class="includes"><h2>Inside the build</h2>${product.includes.map((item) => `<div><i>✓</i><span>${escapeHtml(item)}</span></div>`).join('')}</div>` : ''}
-        <div class="delivery-note"><b>Instant access after verified payment.</b><span>The secure delivery link appears here and can also be sent to the checkout email.</span></div>
+        <div class="delivery-note"><b>${escapeHtml(product.deliveryNoteTitle || (isFree ? 'Instant access.' : 'Instant access after verified payment.'))}</b><span>${escapeHtml(product.deliveryNoteText || 'The secure delivery link appears here and can also be sent to the checkout email.')}</span></div>
         ${collection.length > 1 ? '<p class="swipe-hint">Swipe this panel to move between products.</p>' : ''}
       </section>
     </div>
-    <div class="buy-bar"><div><strong>${isFree ? 'FREE' : formatMoney(product.price)}</strong>${!isFree && Number.isFinite(original) && original > current ? `<del>${formatMoney(original)}</del>` : ''}<small>${isFree ? 'Instant access' : 'One-time payment'}</small></div>${product.checkoutReady ? `<button class="button button-primary buy-button" type="button" data-product-id="${escapeHtml(product.id)}"${isFree ? ' data-free="1"' : ''}>${isFree ? 'Get free access' : 'Buy securely'} <span>→</span></button>` : '<div class="product-unavailable" role="status"><b>Currently unavailable</b><span>Checkout will open when delivery is configured.</span></div>'}</div>
+    <div class="buy-bar"><div><strong>${isFree ? 'FREE' : formatMoney(product.price)}</strong>${!isFree && Number.isFinite(original) && original > current ? `<del>${formatMoney(original)}</del>` : ''}<small>${isFree ? 'Instant access' : 'One-time payment'}</small></div>${product.checkoutReady ? `<button class="button button-primary buy-button" type="button" data-product-id="${escapeHtml(product.id)}"${isFree ? ' data-free="1"' : ''}>${escapeHtml(product.ctaText || (isFree ? 'Get free access' : 'Buy securely'))} <span>→</span></button>` : '<div class="product-unavailable" role="status"><b>Currently unavailable</b><span>Checkout will open when delivery is configured.</span></div>'}</div>
     <div class="checkout-error" role="alert" hidden></div>
   </article>`;
   app.innerHTML = chrome('product', content, store);
@@ -610,7 +623,7 @@ function renderProduct(store: PublicStore): void {
       window.location.assign(result.url);
     } catch (error) {
       buy.disabled = false;
-      buy.innerHTML = isFreeClaim ? 'Get free access <span>→</span>' : 'Buy securely <span>→</span>';
+      buy.innerHTML = `${escapeHtml(product.ctaText || (isFreeClaim ? 'Get free access' : 'Buy securely'))} <span>→</span>`;
       if (errorBox) {
         errorBox.textContent = error instanceof Error ? error.message : (isFreeClaim ? 'This product could not be unlocked.' : 'Checkout could not be opened.');
         errorBox.hidden = false;

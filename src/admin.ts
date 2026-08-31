@@ -25,9 +25,11 @@ interface DeliveryAsset extends JsonRecord {
 interface Product extends JsonRecord {
   id: ProductId;
   name: string;
+  subtitle?: string;
   category?: string;
   price?: string | number;
   desc?: string;
+  description?: string;
   tags?: string[];
   includes?: string[];
   badge?: string;
@@ -40,9 +42,16 @@ interface Product extends JsonRecord {
   deliveryItems?: unknown;
   deliveryMessage?: string;
   deliveryAsset?: unknown;
+  deliveryAssets?: unknown;
   origPrice?: string | number;
   sold?: string | number;
   active?: boolean;
+  visible?: boolean;
+  featured?: boolean;
+  featuredOrder?: number;
+  ctaText?: string;
+  deliveryNoteTitle?: string;
+  deliveryNoteText?: string;
   stripeLink?: string;
 }
 
@@ -110,7 +119,7 @@ interface OrdersResponse {
   offset: number;
 }
 
-type AdminTab = "products" | "content" | "wall" | "orders";
+type AdminTab = "products" | "featured" | "content" | "links" | "wall" | "orders";
 type ToastKind = "success" | "error" | "info";
 
 interface ProductIssue {
@@ -232,6 +241,17 @@ const adminApi = {
       method: "POST",
       body: JSON.stringify({ uploadType: "delivery", productId, fileName, dataBase64 }),
     }),
+  deleteDelivery: (productId: ProductId, asset: DeliveryAsset): Promise<{ removed: boolean }> =>
+    request<{ removed: boolean }>("/upload", {
+      method: "POST",
+      body: JSON.stringify({
+        uploadType: "delivery-delete",
+        productId,
+        bucket: asset.bucket,
+        path: asset.path,
+        fileName: asset.fileName,
+      }),
+    }),
   orders: (limit: number, offset: number): Promise<OrdersResponse> =>
     request<OrdersResponse>(`/orders?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`),
 };
@@ -278,6 +298,24 @@ function productDeliveryAsset(product: Product): DeliveryAsset | null {
     typeof value.sha256 !== "string"
   ) return null;
   return value as DeliveryAsset;
+}
+
+function productDeliveryAssets(product: Product): DeliveryAsset[] {
+  const values = Array.isArray(product.deliveryAssets) ? product.deliveryAssets : [];
+  const holderValues = product.deliveryAsset ? [product.deliveryAsset, ...values] : values;
+  const assets: DeliveryAsset[] = [];
+  const seen = new Set<string>();
+  for (const value of holderValues) {
+    const holder = { id: product.id, name: product.name, deliveryAsset: value } as Product;
+    const asset = productDeliveryAsset(holder);
+    if (!asset) continue;
+    const key = `${asset.bucket}/${asset.path}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    assets.push(asset);
+    if (assets.length === 10) break;
+  }
+  return assets;
 }
 
 function normaliseDeliveryUploadResponse(value: unknown): DeliveryUploadResponse {
@@ -435,7 +473,7 @@ function productIssues(product: Product): ProductIssue[] {
     if (extras.some((item) => !validDeliveryUrl(item.url))) {
       issues.push({ field: "deliveryItems", message: "Every additional delivery option needs a valid HTTPS URL." });
     }
-    if (!validDeliveryUrl(primary) && !extras.some((item) => validDeliveryUrl(item.url)) && !productDeliveryAsset(product)) {
+    if (!validDeliveryUrl(primary) && !extras.some((item) => validDeliveryUrl(item.url)) && !productDeliveryAssets(product).length) {
       issues.push({ field: "deliveryLink", message: "Upload a secure ZIP, add a primary link, or add another delivery option before selling." });
     }
   }
@@ -461,12 +499,15 @@ function scalarLike(original: unknown, value: string): string | number {
 }
 
 function productFromForm(form: HTMLFormElement, original: Product): Product {
+  const pricingMode = inputValue(form, "pricingMode");
   return {
     ...original,
     name: inputValue(form, "name"),
+    subtitle: inputValue(form, "subtitle"),
     category: inputValue(form, "category"),
-    price: scalarLike(original.price, inputValue(form, "price")),
+    price: scalarLike(original.price, pricingMode === "free" ? "0" : inputValue(form, "price")),
     desc: inputValue(form, "desc"),
+    description: inputValue(form, "description"),
     tags: inputValue(form, "tags").split(",").map((tag) => tag.trim()).filter(Boolean),
     includes: inputValue(form, "includes").split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
     badge: inputValue(form, "badge"),
@@ -479,6 +520,12 @@ function productFromForm(form: HTMLFormElement, original: Product): Product {
     origPrice: scalarLike(original.origPrice, inputValue(form, "origPrice")),
     sold: scalarLike(original.sold, inputValue(form, "sold")),
     active: checkboxValue(form, "active"),
+    visible: checkboxValue(form, "visible"),
+    featured: checkboxValue(form, "featured"),
+    featuredOrder: Math.max(0, Math.min(999, Number(inputValue(form, "featuredOrder")) || 0)),
+    ctaText: inputValue(form, "ctaText"),
+    deliveryNoteTitle: inputValue(form, "deliveryNoteTitle"),
+    deliveryNoteText: inputValue(form, "deliveryNoteText"),
     stripeLink: inputValue(form, "stripeLink"),
   };
 }
@@ -606,6 +653,33 @@ function humaniseKey(key: string): string {
     landingEyebrow: "Landing eyebrow",
     landingTitle: "Landing headline",
     landingSub: "Landing subtitle",
+    landingCta: "Main CTA text",
+    featuredEyebrow: "Featured section label",
+    featuredTitle: "Featured section heading",
+    featuredSub: "Featured section supporting copy",
+    archiveEyebrow: "Archive section label",
+    archiveTitle: "Archive section heading",
+    archiveSub: "Archive section supporting copy",
+    kitsTitle: "Kits card heading",
+    kitsSub: "Kits card copy",
+    systemsTitle: "Systems card heading",
+    filesTitle: "Files card heading",
+    filesLandingSub: "Files card copy",
+    wallTitle: "Wall card heading",
+    wallLandingSub: "Wall card copy",
+    intelEyebrow: "Free Intel section label",
+    intelTitle: "Free Intel heading",
+    intelSub: "Free Intel supporting copy",
+    intelCta: "Free Intel CTA text",
+    buildEyebrow: "Build log section label",
+    buildTitle: "Build log heading",
+    buildSub: "Build log supporting copy",
+    networkEyebrow: "Network section label",
+    networkTitle: "Network section heading",
+    networkSub: "Network section supporting copy",
+    contactEyebrow: "Support section label",
+    contactTitle: "Support section heading",
+    contactSub: "Support section copy",
   };
   if (labels[key]) return labels[key];
   return key
@@ -625,12 +699,16 @@ function contentKind(key: string, value: unknown): "string" | "number" | "boolea
 
 function contentFieldKeys(content: JsonRecord): string[] {
   const preferred = [
-    "logo", "landingEyebrow", "landingTitle", "landingSub", "announce", "telegramUrl", "privateTelegramUrl",
-    "contactEmail", "contactPhone", "pill", "eyebrow", "title", "sub", "allLabel", "strip",
+    "logo", "landingEyebrow", "landingTitle", "landingSub", "landingCta", "announce",
+    "featuredEyebrow", "featuredTitle", "featuredSub", "archiveEyebrow", "archiveTitle", "archiveSub",
+    "kitsTitle", "kitsSub", "systemsTitle", "systemsSub", "filesTitle", "filesLandingSub", "wallTitle", "wallLandingSub",
+    "intelEyebrow", "intelTitle", "intelSub", "intelCta", "buildEyebrow", "buildTitle", "buildSub",
+    "networkEyebrow", "networkTitle", "networkSub", "contactEyebrow", "contactTitle", "contactSub",
+    "pill", "eyebrow", "title", "sub", "allLabel", "strip",
     "flogo", "fcopy", "confh", "confp", "confsteps",
-    "socials", "reviews",
+    "reviews",
   ];
-  const legacyHidden = new Set(["services", "showcase"]);
+  const legacyHidden = new Set(["services", "showcase", "telegramUrl", "privateTelegramUrl", "contactEmail", "contactPhone", "socials"]);
   const keys = new Set([...preferred, ...Object.keys(content).filter((key) => !legacyHidden.has(key))]);
   return [...keys];
 }
@@ -728,12 +806,21 @@ function renderMediaPreview(item: MediaItem, index: number): string {
     preview = `<img class="admin-preview" src="${escapeHtml(url)}" alt="" loading="lazy">`;
   }
   return `<div class="admin-wall-item" data-media-index="${index}">
+    ${index === 0 ? '<span class="admin-cover-label">Main cover</span>' : ''}
     ${preview}
     <div class="admin-actions" aria-label="Media item ${index + 1} actions">
+      ${index > 0 ? '<button class="button" type="button" data-action="media-cover">Set as cover</button>' : ''}
       <button class="button" type="button" data-action="media-up" ${index === 0 ? "disabled" : ""} aria-label="Move media item up">↑</button>
       <button class="button" type="button" data-action="media-down" aria-label="Move media item down">↓</button>
       <button class="button button-danger" type="button" data-action="media-remove" aria-label="Remove media item">Remove</button>
     </div>
+  </div>`;
+}
+
+function renderDeliveryAsset(asset: DeliveryAsset, index: number): string {
+  return `<div class="admin-delivery-file" data-delivery-index="${index}">
+    <div><strong>${escapeHtml(asset.fileName)}</strong><small>${Math.ceil(asset.size / 1024)} KB · private storage</small></div>
+    <button class="button button-danger" type="button" data-action="remove-delivery-file">Remove</button>
   </div>`;
 }
 
@@ -749,7 +836,7 @@ function renderProductCard(product: Product, index: number): string {
   const types = knownTypes.includes(currentType) ? knownTypes : [currentType, ...knownTypes];
   const media = productMedia(product);
   const currentDeliveryType = String(product.deliveryType ?? "access");
-  const secureAsset = productDeliveryAsset(product);
+  const secureAssets = productDeliveryAssets(product);
   const deliveryTypes = [
     ["access", "Product / access link"],
     ["download", "Direct download"],
@@ -764,9 +851,11 @@ function renderProductCard(product: Product, index: number): string {
         <p class="admin-kicker">Product ${index + 1}</p>
         <h3>${escapeHtml(product.name || "Untitled product")}</h3>
       </div>
-      <span class="admin-validity ${issues.length ? "is-error" : "is-ok"}" data-product-validation role="status">
-        ${issues.length ? `${issues.length} issue${issues.length === 1 ? "" : "s"} to fix` : "Ready to sell"}
-      </span>
+      <div class="admin-item-controls">
+        <button class="button" type="button" data-action="product-up" ${index === 0 ? "disabled" : ""} aria-label="Move product up">↑</button>
+        <button class="button" type="button" data-action="product-down" aria-label="Move product down">↓</button>
+        <span class="admin-validity ${issues.length ? "is-error" : "is-ok"}" data-product-validation role="status">${issues.length ? `${issues.length} issue${issues.length === 1 ? "" : "s"} to fix` : "Ready to sell"}</span>
+      </div>
     </div>
 
     <div class="admin-error" data-product-summary ${issues.length ? "" : "hidden"} role="alert">
@@ -774,10 +863,15 @@ function renderProductCard(product: Product, index: number): string {
     </div>
 
     <div class="admin-form-grid">
+      <div class="admin-section-label admin-field-wide"><span>Product details</span><small>Storefront title, pricing, category and sales copy.</small></div>
       <div class="field admin-field admin-field-wide">
-        <label for="product-${index}-name">Name</label>
+        <label for="product-${index}-name">Product title</label>
         <input class="field" id="product-${index}-name" name="name" type="text" required value="${escapeHtml(product.name)}" aria-invalid="${nameIssue ? "true" : "false"}" aria-describedby="product-${index}-name-error">
         <span class="admin-field-error" id="product-${index}-name-error" data-error-for="name">${escapeHtml(nameIssue)}</span>
+      </div>
+      <div class="field admin-field admin-field-wide">
+        <label for="product-${index}-subtitle">Subtitle</label>
+        <input class="field" id="product-${index}-subtitle" name="subtitle" type="text" value="${escapeHtml(product.subtitle)}" placeholder="Optional supporting line">
       </div>
       <div class="field admin-field">
         <label for="product-${index}-category">Category</label>
@@ -794,6 +888,13 @@ function renderProductCard(product: Product, index: number): string {
         </select>
       </div>
       <div class="field admin-field">
+        <label for="product-${index}-pricing-mode">Free or paid</label>
+        <select class="field" id="product-${index}-pricing-mode" name="pricingMode">
+          <option value="paid" ${Number(product.price) > 0 ? "selected" : ""}>Paid product</option>
+          <option value="free" ${Number(product.price) === 0 ? "selected" : ""}>Free product</option>
+        </select>
+      </div>
+      <div class="field admin-field">
         <label for="product-${index}-price">Price (£)</label>
         <input class="field" id="product-${index}-price" name="price" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(product.price)}" aria-invalid="${priceIssue ? "true" : "false"}" aria-describedby="product-${index}-price-error">
         <span class="admin-field-error" id="product-${index}-price-error" data-error-for="price">${escapeHtml(priceIssue)}</span>
@@ -807,12 +908,30 @@ function renderProductCard(product: Product, index: number): string {
         <input class="field" id="product-${index}-sold" name="sold" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(product.sold)}" placeholder="Optional">
       </div>
       <div class="field admin-field admin-checkbox-field">
-        <label for="product-${index}-active"><input id="product-${index}-active" name="active" type="checkbox" ${product.active !== false ? "checked" : ""}> Visible and active</label>
-        <small>Inactive products are kept as drafts.</small>
+        <label for="product-${index}-active"><input id="product-${index}-active" name="active" type="checkbox" ${product.active !== false ? "checked" : ""}> Published</label>
+        <small>Unpublished products are drafts and cannot be opened or purchased.</small>
+      </div>
+      <div class="admin-section-label admin-field-wide"><span>Publishing &amp; Featured</span><small>Control availability, catalogue visibility and flagship placement.</small></div>
+      <div class="field admin-field admin-checkbox-field">
+        <label for="product-${index}-visible"><input id="product-${index}-visible" name="visible" type="checkbox" ${product.visible !== false ? "checked" : ""}> Show in store listings</label>
+        <small>Hide it from catalogues while keeping its direct URL available.</small>
+      </div>
+      <div class="field admin-field admin-checkbox-field">
+        <label for="product-${index}-featured"><input id="product-${index}-featured" name="featured" type="checkbox" ${product.featured === true ? "checked" : ""}> Featured / flagship</label>
+        <small>Featured products appear in the landing-page swipe rail.</small>
+      </div>
+      <div class="field admin-field">
+        <label for="product-${index}-featured-order">Featured position</label>
+        <input class="field" id="product-${index}-featured-order" name="featuredOrder" type="number" min="0" max="999" step="1" value="${escapeHtml(product.featuredOrder ?? index)}">
       </div>
       <div class="field admin-field admin-field-wide">
-        <label for="product-${index}-desc">Description</label>
+        <label for="product-${index}-desc">Short description</label>
         <textarea class="field" id="product-${index}-desc" name="desc" rows="5">${escapeHtml(product.desc)}</textarea>
+      </div>
+      <div class="field admin-field admin-field-wide">
+        <label for="product-${index}-description">Full description</label>
+        <textarea class="field" id="product-${index}-description" name="description" rows="7">${escapeHtml(product.description)}</textarea>
+        <small>Used on the full product page. Leave blank to use the short description.</small>
       </div>
       <div class="field admin-field admin-field-wide">
         <label for="product-${index}-tags">Tags</label>
@@ -823,6 +942,18 @@ function renderProductCard(product: Product, index: number): string {
         <label for="product-${index}-includes">What’s included</label>
         <textarea class="field" id="product-${index}-includes" name="includes" rows="5">${escapeHtml((product.includes ?? []).join("\n"))}</textarea>
         <small>One item per line.</small>
+      </div>
+      <div class="field admin-field">
+        <label for="product-${index}-cta">Purchase button text</label>
+        <input class="field" id="product-${index}-cta" name="ctaText" type="text" maxlength="60" value="${escapeHtml(product.ctaText)}" placeholder="Buy securely">
+      </div>
+      <div class="field admin-field">
+        <label for="product-${index}-delivery-note-title">Delivery note heading</label>
+        <input class="field" id="product-${index}-delivery-note-title" name="deliveryNoteTitle" type="text" maxlength="120" value="${escapeHtml(product.deliveryNoteTitle)}" placeholder="Instant access after verified payment.">
+      </div>
+      <div class="field admin-field admin-field-wide">
+        <label for="product-${index}-delivery-note-text">Delivery note supporting copy</label>
+        <textarea class="field" id="product-${index}-delivery-note-text" name="deliveryNoteText" rows="3" maxlength="500">${escapeHtml(product.deliveryNoteText)}</textarea>
       </div>
       <div class="field admin-field admin-field-wide">
         <label for="product-${index}-stripe">Legacy Stripe payment link (not used)</label>
@@ -839,10 +970,12 @@ function renderProductCard(product: Product, index: number): string {
         <label for="product-${index}-delivery-label">Primary button label</label>
         <input class="field" id="product-${index}-delivery-label" name="deliveryLabel" type="text" maxlength="100" value="${escapeHtml(product.deliveryLabel)}" placeholder="Open your product">
       </div>
+      <div class="admin-section-label admin-field-wide"><span>Delivery</span><small>Private files and protected links only shown after valid access.</small></div>
       <div class="field admin-field admin-field-wide">
-        <label for="product-${index}-delivery-zip">Secure delivery ZIP</label>
-        <input id="product-${index}-delivery-zip" type="file" accept=".zip,application/zip,application/x-zip-compressed" data-action="upload-product-delivery">
-        <small>${secureAsset ? `Attached: ${escapeHtml(secureAsset.fileName)} (${Math.ceil(secureAsset.size / 1024)} KB). This private file is released only after verified payment, or immediately when the product price is 0.` : "Upload the customer ZIP here. It is stored privately and never appears in public product media."}</small>
+        <label for="product-${index}-delivery-zip">Secure delivery ZIP files</label>
+        <input id="product-${index}-delivery-zip" type="file" accept=".zip,application/zip,application/x-zip-compressed" multiple data-action="upload-product-delivery">
+        <small>Upload up to 10 customer ZIPs. Each file stays private and is released only after verified payment, or immediately when the product price is 0.</small>
+        <div class="admin-delivery-files">${secureAssets.length ? secureAssets.map(renderDeliveryAsset).join("") : '<p class="admin-empty">No private files attached.</p>'}</div>
       </div>
       <div class="field admin-field admin-field-wide">
         <label for="product-${index}-delivery">Primary delivery link</label>
@@ -864,7 +997,7 @@ function renderProductCard(product: Product, index: number): string {
     </div>
 
     <fieldset class="admin-media panel">
-      <legend>Product media</legend>
+      <legend>Media</legend>
       <p>Images and video appear in this order. The first image is used as the cover.</p>
       <div class="admin-wall-grid admin-media-list" data-product-index="${index}">
         ${media.length ? media.map(renderMediaPreview).join("") : `<p class="admin-empty">No media yet.</p>`}
@@ -885,6 +1018,7 @@ function renderProductCard(product: Product, index: number): string {
 
     <div class="admin-actions">
       <button class="button button-primary" type="submit">Save product</button>
+      <button class="button" type="button" data-action="duplicate-product">Duplicate as draft</button>
       <button class="button button-danger" type="button" data-action="delete-product">Delete product</button>
     </div>
   </form>`;
@@ -1031,17 +1165,55 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
     </section>`;
   }
 
+  function renderFeaturedPanel(): string {
+    if (!store) return "";
+    const products = productsFromStore(store);
+    const featured = products
+      .map((product, index) => ({ product, index }))
+      .filter(({ product }) => product.featured === true)
+      .sort((left, right) => {
+        const leftOrder = Number(left.product.featuredOrder);
+        const rightOrder = Number(right.product.featuredOrder);
+        return (Number.isFinite(leftOrder) ? leftOrder : left.index) - (Number.isFinite(rightOrder) ? rightOrder : right.index);
+      });
+    return `<section class="admin-panel" id="admin-panel-featured" role="tabpanel" aria-labelledby="admin-tab-featured" tabindex="0">
+      <div class="admin-toolbar"><div><p class="admin-kicker">Homepage order</p><h2>Featured</h2><p>Choose one or more products for the landing-page swipe rail. The first item is the main flagship.</p></div></div>
+      <div class="admin-list admin-featured-list">
+        ${products.map((product, index) => {
+          const featuredIndex = featured.findIndex((entry) => entry.index === index);
+          return `<div class="panel admin-featured-row" data-product-index="${index}">
+            <label><input type="checkbox" data-action="toggle-featured" ${product.featured === true ? "checked" : ""}> <span><strong>${escapeHtml(product.name || "Untitled product")}</strong><small>${product.active === false ? "Draft" : product.visible === false ? "Hidden from listings" : featuredIndex === 0 ? "Current first flagship" : product.featured === true ? `Featured position ${featuredIndex + 1}` : "Not featured"}</small></span></label>
+            <div class="admin-actions"><button class="button" type="button" data-action="featured-up" ${featuredIndex <= 0 ? "disabled" : ""}>Move up</button><button class="button" type="button" data-action="featured-down" ${featuredIndex < 0 || featuredIndex === featured.length - 1 ? "disabled" : ""}>Move down</button></div>
+          </div>`;
+        }).join("")}
+      </div>
+    </section>`;
+  }
+
   function renderContentPanel(): string {
     if (!store) return "";
     const content = isRecord(store.content) ? store.content : {};
     const keys = contentFieldKeys(content);
     return `<section class="admin-panel" id="admin-panel-content" role="tabpanel" aria-labelledby="admin-tab-content" tabindex="0">
-      <div class="admin-toolbar"><div><p class="admin-kicker">Store copy</p><h2>Content</h2><p>Edit the text shown across the storefront and purchase confirmation.</p></div></div>
+      <div class="admin-toolbar"><div><p class="admin-kicker">Commercial copy</p><h2>Store Copy</h2><p>Edit meaningful headings, supporting copy and purchase confirmation text.</p></div></div>
       <form class="panel admin-form" data-admin-form="content" novalidate>
         <div class="admin-form-grid">
           ${keys.map((key, index) => renderContentField(key, content[key], index)).join("")}
         </div>
         <div class="admin-actions"><button class="button button-primary" type="submit">Save content</button></div>
+      </form>
+    </section>`;
+  }
+
+  function renderLinksPanel(): string {
+    if (!store) return "";
+    const content = isRecord(store.content) ? store.content : {};
+    const keys = ["contactEmail", "contactPhone", "telegramUrl", "privateTelegramUrl", "socials"];
+    return `<section class="admin-panel" id="admin-panel-links" role="tabpanel" aria-labelledby="admin-tab-links" tabindex="0">
+      <div class="admin-toolbar"><div><p class="admin-kicker">Destinations</p><h2>Links</h2><p>Update email, WhatsApp, public Telegram and protected buyer destinations.</p></div></div>
+      <form class="panel admin-form" data-admin-form="content" novalidate>
+        <div class="admin-form-grid">${keys.map((key, index) => renderContentField(key, content[key], index)).join("")}</div>
+        <div class="admin-actions"><button class="button button-primary" type="submit">Save links</button></div>
       </form>
     </section>`;
   }
@@ -1095,17 +1267,23 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
     if (!session || !store) return;
     const tabs: Array<{ id: AdminTab; label: string }> = [
       { id: "products", label: "Products" },
-      { id: "content", label: "Content" },
+      { id: "featured", label: "Featured" },
+      { id: "content", label: "Store Copy" },
+      { id: "links", label: "Links" },
       { id: "wall", label: "The Wall" },
       { id: "orders", label: "Orders" },
     ];
     const panel = activeTab === "products"
       ? renderProductsPanel()
+      : activeTab === "featured"
+        ? renderFeaturedPanel()
       : activeTab === "content"
         ? renderContentPanel()
-        : activeTab === "wall"
-          ? renderWallPanel()
-          : renderOrdersPanel();
+        : activeTab === "links"
+          ? renderLinksPanel()
+          : activeTab === "wall"
+            ? renderWallPanel()
+            : renderOrdersPanel();
 
     root.innerHTML = `<section class="admin-shell">
       <header class="admin-header">
@@ -1237,7 +1415,13 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
     const target = event.target;
     if (!(target instanceof Element)) return;
     const form = target.closest<HTMLFormElement>('form[data-admin-form="product"]');
-    if (form) updateProductValidation(form);
+    if (form) {
+      if (target instanceof HTMLSelectElement && target.name === "pricingMode" && target.value === "free") {
+        const price = form.elements.namedItem("price");
+        if (price instanceof HTMLInputElement) price.value = "0";
+      }
+      updateProductValidation(form);
+    }
   }
 
   function handleKeydown(event: KeyboardEvent): void {
@@ -1395,20 +1579,28 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
       if (input.dataset.action === "upload-product-delivery") {
         const index = productIndexFromElement(input);
         const product = index === null ? null : productAt(index);
-        const file = files[0];
-        if (index === null || !product || !file) return;
-        if (!file.name.toLowerCase().endsWith(".zip")) throw new Error("Secure delivery files must be ZIP archives.");
-        if (file.size > MAX_DELIVERY_UPLOAD_BYTES) throw new Error("Secure delivery ZIPs must be 3 MB or smaller.");
-        toast(`Uploading ${file.name} to private delivery storage…`);
-        const dataBase64 = await fileToBase64(file);
-        const response = normaliseDeliveryUploadResponse(await adminApi.uploadDelivery(product.id, file.name, dataBase64));
+        if (index === null || !product) return;
+        const existingAssets = productDeliveryAssets(product);
+        if (existingAssets.length + files.length > 10) throw new Error("A product can have at most 10 secure delivery files.");
+        for (const file of files) {
+          if (!file.name.toLowerCase().endsWith(".zip")) throw new Error("Secure delivery files must be ZIP archives.");
+          if (file.size > MAX_DELIVERY_UPLOAD_BYTES) throw new Error("Secure delivery ZIPs must be 3 MB or smaller.");
+        }
+        toast(`Uploading ${files.length} private delivery file${files.length === 1 ? "" : "s"}…`);
+        const uploadedAssets: DeliveryAsset[] = [];
+        for (const file of files) {
+          const dataBase64 = await fileToBase64(file);
+          const response = normaliseDeliveryUploadResponse(await adminApi.uploadDelivery(product.id, file.name, dataBase64));
+          uploadedAssets.push(response.deliveryAsset);
+        }
         const next = clone(store);
         const nextProduct = productsFromStore(next)[index];
         if (!nextProduct) throw new Error("The selected product no longer exists.");
-        nextProduct.deliveryAsset = response.deliveryAsset;
+        nextProduct.deliveryAssets = [...existingAssets, ...uploadedAssets];
+        delete nextProduct.deliveryAsset;
         await persistStore(next);
         renderDashboard();
-        toast(`${file.name} is attached for secure delivery.`, "success");
+        toast(`${files.length} private delivery file${files.length === 1 ? " is" : "s are"} attached.`, "success");
         return;
       }
 
@@ -1460,7 +1652,7 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
 
     if (action === "tab") {
       const tab = control.dataset.tab;
-      if (tab !== "products" && tab !== "content" && tab !== "wall" && tab !== "orders") return;
+      if (tab !== "products" && tab !== "featured" && tab !== "content" && tab !== "links" && tab !== "wall" && tab !== "orders") return;
       activeTab = tab;
       renderDashboard();
       root.querySelector<HTMLElement>(`#admin-tab-${tab}`)?.focus();
@@ -1518,9 +1710,11 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
         products.push({
           id,
           name: "New product",
+          subtitle: "",
           category: "",
           price: "",
           desc: "",
+          description: "",
           tags: [],
           includes: [],
           badge: "",
@@ -1531,10 +1725,17 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
           deliveryType: "access",
           deliveryLabel: "",
           deliveryItems: [],
+          deliveryAssets: [],
           deliveryMessage: "",
           origPrice: "",
           sold: "",
           active: false,
+          visible: true,
+          featured: false,
+          featuredOrder: products.length,
+          ctaText: "",
+          deliveryNoteTitle: "",
+          deliveryNoteText: "",
           stripeLink: "",
         });
         next.products = products;
@@ -1550,6 +1751,105 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
       return;
     }
 
+    if (action === "duplicate-product") {
+      const index = productIndexFromElement(control);
+      const product = index === null ? null : productAt(index);
+      if (index === null || !product) return;
+      const button = control instanceof HTMLButtonElement ? control : null;
+      const restore = setBusy(button, true, "Duplicating…");
+      try {
+        const next = clone(store);
+        const products = productsFromStore(next);
+        const numericIds = products.map((item) => Number(item.id)).filter((id) => Number.isFinite(id));
+        const id = numericIds.length ? Math.max(...numericIds) + 1 : 1;
+        const duplicate = clone(products[index]);
+        duplicate.id = id;
+        duplicate.name = `${duplicate.name || "Untitled product"} — Copy`;
+        duplicate.active = false;
+        duplicate.visible = false;
+        duplicate.featured = false;
+        duplicate.featuredOrder = products.length;
+        duplicate.deliveryLink = "";
+        duplicate.deliveryItems = [];
+        duplicate.deliveryAssets = [];
+        delete duplicate.deliveryAsset;
+        duplicate.stripeLink = "";
+        products.splice(index + 1, 0, duplicate);
+        next.products = products;
+        await persistStore(next);
+        renderDashboard();
+        root.querySelector<HTMLElement>(`[data-product-index="${index + 1}"] input[name="name"]`)?.focus();
+        toast("Draft duplicated. Delivery was cleared for safety.", "success");
+      } catch (error) {
+        actionError(error, "The product could not be duplicated.");
+      } finally {
+        restore();
+      }
+      return;
+    }
+
+    if (action === "product-up" || action === "product-down") {
+      const index = productIndexFromElement(control);
+      if (index === null) return;
+      const button = control instanceof HTMLButtonElement ? control : null;
+      const restore = setBusy(button, true, "Moving…");
+      try {
+        const next = clone(store);
+        const products = productsFromStore(next);
+        const swapWith = index + (action === "product-up" ? -1 : 1);
+        if (swapWith < 0 || swapWith >= products.length) return;
+        [products[index], products[swapWith]] = [products[swapWith], products[index]];
+        next.products = products;
+        await persistStore(next);
+        renderDashboard();
+        toast("Product order updated.", "success");
+      } catch (error) {
+        actionError(error, "The product order could not be updated.");
+      } finally {
+        restore();
+      }
+      return;
+    }
+
+    if (action === "toggle-featured" || action === "featured-up" || action === "featured-down") {
+      const index = productIndexFromElement(control);
+      if (index === null) return;
+      const button = control instanceof HTMLButtonElement ? control : null;
+      const restore = setBusy(button, true, "Saving…");
+      try {
+        const next = clone(store);
+        const products = productsFromStore(next);
+        const target = products[index];
+        if (!target) return;
+        if (action === "toggle-featured") target.featured = control instanceof HTMLInputElement ? control.checked : !target.featured;
+        const featured = products
+          .map((product, productIndex) => ({ product, productIndex }))
+          .filter(({ product }) => product.featured === true)
+          .sort((left, right) => {
+            const leftOrder = Number(left.product.featuredOrder);
+            const rightOrder = Number(right.product.featuredOrder);
+            return (Number.isFinite(leftOrder) ? leftOrder : left.productIndex) - (Number.isFinite(rightOrder) ? rightOrder : right.productIndex);
+          });
+        if (action === "featured-up" || action === "featured-down") {
+          const position = featured.findIndex((entry) => entry.productIndex === index);
+          const swapWith = position + (action === "featured-up" ? -1 : 1);
+          if (position < 0 || swapWith < 0 || swapWith >= featured.length) return;
+          [featured[position], featured[swapWith]] = [featured[swapWith], featured[position]];
+        }
+        featured.forEach((entry, position) => { entry.product.featuredOrder = position; });
+        if (target.featured !== true) delete target.featuredOrder;
+        next.products = products;
+        await persistStore(next);
+        renderDashboard();
+        toast("Featured products updated.", "success");
+      } catch (error) {
+        actionError(error, "Featured products could not be updated.");
+      } finally {
+        restore();
+      }
+      return;
+    }
+
     if (action === "delete-product") {
       const index = productIndexFromElement(control);
       const product = index === null ? null : productAt(index);
@@ -1558,13 +1858,16 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
       const button = control instanceof HTMLButtonElement ? control : null;
       const restore = setBusy(button, true, "Deleting…");
       try {
+        const secureAssets = productDeliveryAssets(product);
         const next = clone(store);
         const products = productsFromStore(next);
         products.splice(index, 1);
         next.products = products;
         await persistStore(next);
+        const cleanup = await Promise.allSettled(secureAssets.map((asset) => adminApi.deleteDelivery(product.id, asset)));
+        const cleanupFailures = cleanup.filter((result) => result.status === "rejected").length;
         renderDashboard();
-        toast("Product deleted.", "success");
+        toast(cleanupFailures ? "Product deleted. One or more unused private files still need storage cleanup." : "Product and its private delivery files were deleted.", cleanupFailures ? "info" : "success");
       } catch (error) {
         actionError(error, "The product could not be deleted.");
       } finally {
@@ -1594,7 +1897,40 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
       return;
     }
 
-    if (action === "media-up" || action === "media-down" || action === "media-remove") {
+    if (action === "remove-delivery-file") {
+      const index = productIndexFromElement(control);
+      const product = index === null ? null : productAt(index);
+      const holder = control.closest<HTMLElement>("[data-delivery-index]");
+      const deliveryIndex = holder ? Number(holder.dataset.deliveryIndex) : -1;
+      const assets = product ? productDeliveryAssets(product) : [];
+      const asset = assets[deliveryIndex];
+      if (index === null || !product || !asset) return;
+      if (!window.confirm(`Remove “${asset.fileName}” from secure delivery? Buyers will no longer receive this file.`)) return;
+      const button = control instanceof HTMLButtonElement ? control : null;
+      const restore = setBusy(button, true, "Removing…");
+      try {
+        const next = clone(store);
+        const nextProduct = productsFromStore(next)[index];
+        if (!nextProduct) throw new Error("The selected product no longer exists.");
+        nextProduct.deliveryAssets = assets.filter((_, assetIndex) => assetIndex !== deliveryIndex);
+        delete nextProduct.deliveryAsset;
+        await persistStore(next);
+        try {
+          await adminApi.deleteDelivery(product.id, asset);
+          toast("Private delivery file removed.", "success");
+        } catch {
+          toast("The file is no longer delivered. Private storage cleanup could not finish automatically.", "info");
+        }
+        renderDashboard();
+      } catch (error) {
+        actionError(error, "The delivery file could not be removed.");
+      } finally {
+        restore();
+      }
+      return;
+    }
+
+    if (action === "media-up" || action === "media-down" || action === "media-cover" || action === "media-remove") {
       const index = productIndexFromElement(control);
       const product = index === null ? null : productAt(index);
       const holder = control.closest<HTMLElement>("[data-media-index]");
@@ -1602,7 +1938,11 @@ export async function renderAdmin(root: HTMLElement): Promise<void> {
       if (index === null || !product || !Number.isInteger(mediaIndex) || mediaIndex < 0) return;
       const media = productMedia(product);
       if (action === "media-remove") {
+        if (!window.confirm("Remove this media item from the product?")) return;
         media.splice(mediaIndex, 1);
+      } else if (action === "media-cover") {
+        const [cover] = media.splice(mediaIndex, 1);
+        if (cover) media.unshift(cover);
       } else {
         const swapWith = mediaIndex + (action === "media-up" ? -1 : 1);
         if (swapWith < 0 || swapWith >= media.length) return;

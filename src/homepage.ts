@@ -9,6 +9,7 @@ interface HomeStore {
   eyebrow: string;
   title: string;
   subtitle: string;
+  content: Record<string, unknown>;
   products: Product[];
 }
 
@@ -90,6 +91,7 @@ const FALLBACK_STORE: HomeStore = {
   eyebrow: '[ SELF-SERVE DIGITAL OPS ]',
   title: 'MOVE\nQUIET.',
   subtitle: 'Operator kits, field files and private systems. Secure checkout. Instant delivery. No call required.',
+  content: {},
   products: [],
 };
 
@@ -123,6 +125,7 @@ function readStore(payload: unknown): HomeStore {
     eyebrow: typeof content.landingEyebrow === 'string' && content.landingEyebrow.trim() ? content.landingEyebrow.trim() : FALLBACK_STORE.eyebrow,
     title: typeof content.landingTitle === 'string' && content.landingTitle.trim() ? content.landingTitle.trim() : FALLBACK_STORE.title,
     subtitle: typeof content.landingSub === 'string' && content.landingSub.trim() ? content.landingSub.trim() : FALLBACK_STORE.subtitle,
+    content,
     products,
   };
 }
@@ -192,10 +195,31 @@ function formatMoney(value: string): string {
 }
 
 export function featuredProduct(store: HomeStore): Product | undefined {
-  return store.products.find((product) => product.featured === true)
-    || store.products.find((product) => /^flagship$/i.test(String(product.badge || '').trim()))
-    || store.products.find((product) => !/^(file|system|template)$/i.test(String(product.ptype || '')))
-    || store.products[0];
+  return featuredProducts(store)[0];
+}
+
+export function featuredProducts(store: HomeStore): Product[] {
+  const available = store.products.filter((product) => product.active !== false && product.visible !== false);
+  const explicitlyFeatured = available.filter((product) => product.featured === true);
+  if (explicitlyFeatured.length) {
+    return explicitlyFeatured
+      .map((product, index) => ({ product, index }))
+      .sort((left, right) => {
+        const leftOrder = Number(left.product.featuredOrder);
+        const rightOrder = Number(right.product.featuredOrder);
+        return (Number.isFinite(leftOrder) ? leftOrder : left.index) - (Number.isFinite(rightOrder) ? rightOrder : right.index);
+      })
+      .map(({ product }) => product);
+  }
+  const fallback = available.find((product) => /^flagship$/i.test(String(product.badge || '').trim()))
+    || available.find((product) => !/^(file|system|template)$/i.test(String(product.ptype || '')))
+    || available[0];
+  return fallback ? [fallback] : [];
+}
+
+function copy(store: HomeStore, key: string, fallback: string): string {
+  const value = store.content[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
 function telegramAction(store: HomeStore, className: string, label: string): string {
@@ -235,13 +259,17 @@ function heroContactActions(store: HomeStore): string {
 }
 
 function featuredMarkup(store: HomeStore): string {
-  const product = featuredProduct(store);
-  if (!product) return `<article class="ops-feature ops-feature--empty reveal"><div><span>FLAGSHIP // LOADING BAY</span><h2>The next release is being prepared.</h2><p>Enter the store to view every live kit, file and system.</p></div><a class="ops-button ops-button--primary" href="/store/"><span>Enter the store</span><b>&nearr;</b></a></article>`;
-  const media = productMedia(product);
-  return `<article class="ops-feature reveal">
-    <a class="ops-feature-media" href="${productPath(product)}" aria-label="View ${escapeHtml(product.name)}"><span>FLAGSHIP // 001</span>${media?.type === 'video' ? `<video src="${escapeHtml(media.url)}" muted loop autoplay playsinline preload="metadata"></video>` : media?.url ? `<img src="${escapeHtml(media.url)}" alt="${escapeHtml(media.alt || product.name)}" loading="eager">` : `<div class="ops-product-mark"><small>SHADOWGLB</small><b>${escapeHtml(product.name.slice(0, 2).toUpperCase())}</b></div>`}</a>
-    <div class="ops-feature-copy"><div class="ops-feature-top"><span>${escapeHtml(product.ptype || product.category || 'Operator kit')}</span><strong>${formatMoney(product.price)}</strong></div><h2>${escapeHtml(product.name)}</h2><p>${escapeHtml(product.desc || 'A practical digital resource built for immediate use.')}</p>${product.includes?.length ? `<ul>${product.includes.slice(0, 4).map((item) => `<li><i>&check;</i><span>${escapeHtml(item)}</span></li>`).join('')}</ul>` : ''}<div class="ops-feature-actions"><a class="ops-button ops-button--primary" href="${productPath(product)}"><span>View the drop</span><b>&nearr;</b></a><a class="ops-text-link" href="/store/">Browse everything <b>&rarr;</b></a></div></div>
-  </article>`;
+  const products = featuredProducts(store);
+  if (!products.length) return `<article class="ops-feature ops-feature--empty reveal"><div><span>FLAGSHIP // LOADING BAY</span><h2>The next release is being prepared.</h2><p>Enter the store to view every live kit, file and system.</p></div><a class="ops-button ops-button--primary" href="/store/"><span>Enter the store</span><b>&nearr;</b></a></article>`;
+  const card = (product: Product, index: number): string => {
+    const media = productMedia(product);
+    return `<article class="ops-feature reveal">
+      <a class="ops-feature-media" href="${productPath(product)}" aria-label="View ${escapeHtml(product.name)}"><span>FLAGSHIP // ${String(index + 1).padStart(3, '0')}</span>${media?.type === 'video' ? `<video src="${escapeHtml(media.url)}" muted loop autoplay playsinline preload="metadata"></video>` : media?.url ? `<img src="${escapeHtml(media.url)}" alt="${escapeHtml(media.alt || product.name)}" loading="${index === 0 ? 'eager' : 'lazy'}">` : `<div class="ops-product-mark"><small>SHADOWGLB</small><b>${escapeHtml(product.name.slice(0, 2).toUpperCase())}</b></div>`}</a>
+      <div class="ops-feature-copy"><div class="ops-feature-top"><span>${escapeHtml(product.ptype || product.category || 'Operator kit')}</span><strong>${formatMoney(product.price)}</strong></div><h2>${escapeHtml(product.name)}</h2>${product.subtitle ? `<small class="ops-feature-subtitle">${escapeHtml(product.subtitle)}</small>` : ''}<p>${escapeHtml(product.desc || 'A practical digital resource built for immediate use.')}</p>${product.includes?.length ? `<ul>${product.includes.slice(0, 4).map((item) => `<li><i>&check;</i><span>${escapeHtml(item)}</span></li>`).join('')}</ul>` : ''}<div class="ops-feature-actions"><a class="ops-button ops-button--primary" href="${productPath(product)}"><span>${escapeHtml(product.ctaText || 'View the drop')}</span><b>&nearr;</b></a><a class="ops-text-link" href="/store/">Browse everything <b>&rarr;</b></a></div></div>
+    </article>`;
+  };
+  if (products.length === 1) return card(products[0], 0);
+  return `<div class="ops-feature-controls" aria-label="Featured products"><button type="button" data-ops-feature-move="-1" aria-label="Previous featured product">&larr;</button><span>${products.length} featured drops</span><button type="button" data-ops-feature-move="1" aria-label="Next featured product">&rarr;</button></div><div class="ops-feature-rail">${products.map(card).join('')}</div><div class="ops-feature-dots">${products.map((product, index) => `<button type="button" class="${index === 0 ? 'is-active' : ''}" aria-label="Show ${escapeHtml(product.name)}"></button>`).join('')}</div>`;
 }
 
 function template(store: HomeStore): string {
@@ -251,16 +279,16 @@ function template(store: HomeStore): string {
     <header class="ops-nav"><a class="ops-brand" href="/" aria-label="ShadowGLB home"><span>${escapeHtml(logoLead)}</span><b>${escapeHtml(logoTail)}</b></a><nav aria-label="Primary navigation"><a class="is-active" href="/">Home</a><a href="/store/">Operator Kits</a><a href="/systems/">Systems</a><a href="/files/">The Files</a><a href="/wall/">The Wall</a><a href="#intel">Free Intel</a></nav><div class="ops-nav-actions">${store.telegramUrl ? `<a href="${escapeHtml(store.telegramUrl)}" target="_blank" rel="noopener noreferrer">Join Intel <b>&nearr;</b></a>` : '<a href="/store/">Enter store <b>&nearr;</b></a>'}<button class="ops-menu-button" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="ops-mobile-menu"><span></span><span></span></button></div></header>
     <div class="ops-mobile-menu" id="ops-mobile-menu" aria-hidden="true"><div><span>Navigation</span><button type="button" aria-label="Close navigation">&times;</button></div><nav aria-label="Mobile navigation"><a href="/"><small>01</small><span>Home</span></a><a href="/store/"><small>02</small><span>Operator Kits</span></a><a href="/systems/"><small>03</small><span>Systems</span></a><a href="/files/"><small>04</small><span>The Files</span></a><a href="/wall/"><small>05</small><span>The Wall</span></a><a href="#intel"><small>06</small><span>Free Intel</span></a><a href="/contact/"><small>07</small><span>Contact</span></a></nav><p>SHADOWGLB // SELF-SERVE NETWORK</p></div>
     <main id="main-content">
-      <section class="ops-hero"><div class="ops-grid" aria-hidden="true"></div><div class="ops-signal" aria-hidden="true"><i></i><i></i><span>SG</span></div><div class="ops-hero-copy reveal"><span class="ops-kicker">${escapeHtml(store.eyebrow)}</span><h1>${escapeHtml(store.title).replace(/\n/g, '<br>')}</h1><p>${escapeHtml(store.subtitle)}</p><div class="ops-hero-actions"><a class="ops-button ops-button--primary" href="/store/"><span>Enter store</span><b>&rarr;</b></a></div>${heroContactActions(store)}</div><div class="ops-hero-status"><span><i></i> STORE ONLINE</span><span>AUTO DELIVERY</span><span>BUY</span><span>RECEIVE</span><span>REPEAT</span></div></section>
+      <section class="ops-hero"><div class="ops-grid" aria-hidden="true"></div><div class="ops-signal" aria-hidden="true"><i></i><i></i><span>SG</span></div><div class="ops-hero-copy reveal"><span class="ops-kicker">${escapeHtml(store.eyebrow)}</span><h1>${escapeHtml(store.title).replace(/\n/g, '<br>')}</h1><p>${escapeHtml(store.subtitle)}</p><div class="ops-hero-actions"><a class="ops-button ops-button--primary" href="/store/"><span>${escapeHtml(copy(store, 'landingCta', 'Enter store'))}</span><b>&rarr;</b></a></div>${heroContactActions(store)}</div><div class="ops-hero-status"><span><i></i> STORE ONLINE</span><span>AUTO DELIVERY</span><span>BUY</span><span>RECEIVE</span><span>REPEAT</span></div></section>
       <div class="ops-ticker" aria-label="ShadowGLB buying journey"><div>${stages.map((item) => `<span>${item}<i>+</i></span>`).join('')}</div></div>
-      <section class="ops-section" id="flagship" aria-labelledby="flagship-title"><div class="ops-heading reveal"><span>[ 01 / FEATURED DROP ]</span><div><h2 id="flagship-title">Start with the strongest asset.</h2><p>One clear product. One secure payment. Immediate access after verification.</p></div></div>${featuredMarkup(store)}</section>
-      <section class="ops-section" aria-labelledby="archive-title"><div class="ops-heading reveal"><span>[ 02 / THE ARCHIVE ]</span><div><h2 id="archive-title">Choose your entry point.</h2><p>Everything has a purpose. No filler, fake scarcity or call required.</p></div></div><div class="ops-archive-grid">
-        <a class="ops-archive-card reveal" href="/store/"><small>01 // KITS</small><h3>Operator Kits</h3><p>Complete resources for turning a skill into a clear offer and repeatable process.</p><span>Browse kits <b>&nearr;</b></span></a><a class="ops-archive-card reveal" href="/systems/"><small>02 // SYSTEMS</small><h3>Systems &amp; Templates</h3><p>Ready-to-run structures, templates and practical operating assets.</p><span>Open systems <b>&nearr;</b></span></a><a class="ops-archive-card ops-archive-card--file reveal" href="/files/"><small>03 // CLASSIFIED</small><h3>The Files</h3><p>Focused business files, frameworks and field-tested operator intel.</p><span>Access files <b>&nearr;</b></span></a><a class="ops-archive-card reveal" href="/wall/"><small>04 // PROOF</small><h3>The Wall</h3><p>Visuals, product previews and the record of what SHADOW is building.</p><span>View the wall <b>&nearr;</b></span></a>
+      <section class="ops-section" id="flagship" aria-labelledby="flagship-title"><div class="ops-heading reveal"><span>${escapeHtml(copy(store, 'featuredEyebrow', '[ 01 / FEATURED DROP ]'))}</span><div><h2 id="flagship-title">${escapeHtml(copy(store, 'featuredTitle', 'Start with the strongest asset.'))}</h2><p>${escapeHtml(copy(store, 'featuredSub', 'One clear product. One secure payment. Immediate access after verification.'))}</p></div></div>${featuredMarkup(store)}</section>
+      <section class="ops-section" aria-labelledby="archive-title"><div class="ops-heading reveal"><span>${escapeHtml(copy(store, 'archiveEyebrow', '[ 02 / THE ARCHIVE ]'))}</span><div><h2 id="archive-title">${escapeHtml(copy(store, 'archiveTitle', 'Choose your entry point.'))}</h2><p>${escapeHtml(copy(store, 'archiveSub', 'Everything has a purpose. No filler, fake scarcity or call required.'))}</p></div></div><div class="ops-archive-grid">
+        <a class="ops-archive-card reveal" href="/store/"><small>01 // KITS</small><h3>${escapeHtml(copy(store, 'kitsTitle', 'Operator Kits'))}</h3><p>${escapeHtml(copy(store, 'kitsSub', 'Complete resources for turning a skill into a clear offer and repeatable process.'))}</p><span>Browse kits <b>&nearr;</b></span></a><a class="ops-archive-card reveal" href="/systems/"><small>02 // SYSTEMS</small><h3>${escapeHtml(copy(store, 'systemsTitle', 'Systems & Templates'))}</h3><p>${escapeHtml(copy(store, 'systemsSub', 'Ready-to-run structures, templates and practical operating assets.'))}</p><span>Open systems <b>&nearr;</b></span></a><a class="ops-archive-card ops-archive-card--file reveal" href="/files/"><small>03 // CLASSIFIED</small><h3>${escapeHtml(copy(store, 'filesTitle', 'The Files'))}</h3><p>${escapeHtml(copy(store, 'filesLandingSub', 'Focused business files, frameworks and field-tested operator intel.'))}</p><span>Access files <b>&nearr;</b></span></a><a class="ops-archive-card reveal" href="/wall/"><small>04 // PROOF</small><h3>${escapeHtml(copy(store, 'wallTitle', 'The Wall'))}</h3><p>${escapeHtml(copy(store, 'wallLandingSub', 'Visuals, product previews and the record of what SHADOW is building.'))}</p><span>View the wall <b>&nearr;</b></span></a>
       </div></section>
-      <section class="ops-section ops-intel" id="intel" aria-labelledby="intel-title"><div class="ops-intel-copy reveal"><span>[ 03 / FREE INTEL ]</span><h2 id="intel-title">Get value before you buy.</h2><p>Shadow / Intel is the public channel: useful breakdowns, product drops, build logs and updates. Buyers can receive private access separately after verified payment.</p><div>${telegramAction(store, 'ops-button ops-button--primary', 'Join Shadow / Intel')}<a class="ops-text-link" href="/store/">Or enter the store <b>&rarr;</b></a></div></div><div class="ops-terminal reveal" aria-label="Shadow Intel feed preview"><header><span>SHADOW / INTEL</span><i>PUBLIC CHANNEL</i></header><div><p><small>INTEL // 001</small><b>Clear offers beat complicated tools.</b><span>Practical breakdowns. No empty motivation.</span></p><p><small>DROP // ACTIVE</small><b>New assets go live here first.</b><span>Products, previews and release notes.</span></p><p><small>LOG // OPEN</small><b>The operation is built in public.</b><span>What changed, what shipped, what comes next.</span></p></div><footer><i></i><span>TRANSMISSION OPEN</span></footer></div></section>
-      <section class="ops-section" aria-labelledby="logs-title"><div class="ops-heading reveal"><span>[ 04 / BUILT IN PUBLIC ]</span><div><h2 id="logs-title">Follow the operation.</h2><p>The content is the proof: what is being built, why it matters and where to access it.</p></div></div><div class="ops-log-grid"><article class="reveal"><small>BUILD LOG // 001</small><h3>The store was rebuilt around one journey.</h3><p>Discover, trust, buy, receive, stay. Every page now has a commercial job.</p></article><article class="reveal"><small>BUILD LOG // 002</small><h3>Products are packaged for immediate access.</h3><p>Secure checkout and digital delivery stay at the centre of the operation.</p></article><article class="reveal"><small>BUILD LOG // NEXT</small><h3>The flagship drop is the current focus.</h3><p>One product, repeated proof and a direct path from content to checkout.</p></article></div></section>
-      <section class="ops-section ops-network reveal" aria-labelledby="network-title"><span>[ 05 / ENTER THE NETWORK ]</span><h2 id="network-title">Public intel now.<br>Private network later.</h2><p>The future Shadow Network will be earned by building a real audience and customer base first. For now: join the public channel, use the products and stay close to the next release.</p><div class="ops-network-actions">${telegramAction(store, 'ops-button ops-button--primary', 'Enter Shadow / Intel')}<a class="ops-button ops-button--ghost" href="/store/"><span>Shop the archive</span><b>&nearr;</b></a></div></section>
-      <section class="ops-contact"><div><span>[ SUPPORT / DIRECT LINE ]</span><h2>Need help with a product or order?</h2><p>Email and WhatsApp are support routes. Every product purchase remains self-serve.</p></div><div class="ops-contact-actions">${contactActions(store)}</div></section>
+      <section class="ops-section ops-intel" id="intel" aria-labelledby="intel-title"><div class="ops-intel-copy reveal"><span>${escapeHtml(copy(store, 'intelEyebrow', '[ 03 / FREE INTEL ]'))}</span><h2 id="intel-title">${escapeHtml(copy(store, 'intelTitle', 'Get value before you buy.'))}</h2><p>${escapeHtml(copy(store, 'intelSub', 'Shadow / Intel is the public channel: useful breakdowns, product drops, build logs and updates. Buyers can receive private access separately after verified payment.'))}</p><div>${telegramAction(store, 'ops-button ops-button--primary', copy(store, 'intelCta', 'Join Shadow / Intel'))}<a class="ops-text-link" href="/store/">Or enter the store <b>&rarr;</b></a></div></div><div class="ops-terminal reveal" aria-label="Shadow Intel feed preview"><header><span>SHADOW / INTEL</span><i>PUBLIC CHANNEL</i></header><div><p><small>INTEL // 001</small><b>Clear offers beat complicated tools.</b><span>Practical breakdowns. No empty motivation.</span></p><p><small>DROP // ACTIVE</small><b>New assets go live here first.</b><span>Products, previews and release notes.</span></p><p><small>LOG // OPEN</small><b>The operation is built in public.</b><span>What changed, what shipped, what comes next.</span></p></div><footer><i></i><span>TRANSMISSION OPEN</span></footer></div></section>
+      <section class="ops-section" aria-labelledby="logs-title"><div class="ops-heading reveal"><span>${escapeHtml(copy(store, 'buildEyebrow', '[ 04 / BUILT IN PUBLIC ]'))}</span><div><h2 id="logs-title">${escapeHtml(copy(store, 'buildTitle', 'Follow the operation.'))}</h2><p>${escapeHtml(copy(store, 'buildSub', 'The content is the proof: what is being built, why it matters and where to access it.'))}</p></div></div><div class="ops-log-grid"><article class="reveal"><small>BUILD LOG // 001</small><h3>The store was rebuilt around one journey.</h3><p>Discover, trust, buy, receive, stay. Every page now has a commercial job.</p></article><article class="reveal"><small>BUILD LOG // 002</small><h3>Products are packaged for immediate access.</h3><p>Secure checkout and digital delivery stay at the centre of the operation.</p></article><article class="reveal"><small>BUILD LOG // NEXT</small><h3>The flagship drop is the current focus.</h3><p>One product, repeated proof and a direct path from content to checkout.</p></article></div></section>
+      <section class="ops-section ops-network reveal" aria-labelledby="network-title"><span>${escapeHtml(copy(store, 'networkEyebrow', '[ 05 / ENTER THE NETWORK ]'))}</span><h2 id="network-title">${escapeHtml(copy(store, 'networkTitle', 'Public intel now.\nPrivate network later.')).replace(/\n/g, '<br>')}</h2><p>${escapeHtml(copy(store, 'networkSub', 'The future Shadow Network will be earned by building a real audience and customer base first. For now: join the public channel, use the products and stay close to the next release.'))}</p><div class="ops-network-actions">${telegramAction(store, 'ops-button ops-button--primary', 'Enter Shadow / Intel')}<a class="ops-button ops-button--ghost" href="/store/"><span>Shop the archive</span><b>&nearr;</b></a></div></section>
+      <section class="ops-contact"><div><span>${escapeHtml(copy(store, 'contactEyebrow', '[ SUPPORT / DIRECT LINE ]'))}</span><h2>${escapeHtml(copy(store, 'contactTitle', 'Need help with a product or order?'))}</h2><p>${escapeHtml(copy(store, 'contactSub', 'Email and WhatsApp are support routes. Every product purchase remains self-serve.'))}</p></div><div class="ops-contact-actions">${contactActions(store)}</div></section>
     </main>
     <footer class="ops-footer"><a href="/">SHADOW<span>GLB</span></a><nav><a href="/store/">Kits</a><a href="/systems/">Systems</a><a href="/files/">Files</a><a href="/wall/">Wall</a><a href="/contact/">Contact</a><a href="/admin/">Admin</a></nav><p>&copy; 2026 Shadow Global &middot; TCF Firm Ltd</p></footer>`;
 }
@@ -283,6 +311,26 @@ function bindInteractions(): void {
   document.querySelector<HTMLButtonElement>('.ops-announce button')?.addEventListener('click', (event) => {
     (event.currentTarget as HTMLElement).closest('.ops-announce')?.remove();
   });
+
+  const featuredRail = document.querySelector<HTMLElement>('.ops-feature-rail');
+  const featuredCards = featuredRail ? [...featuredRail.querySelectorAll<HTMLElement>('.ops-feature')] : [];
+  const featuredDots = [...document.querySelectorAll<HTMLButtonElement>('.ops-feature-dots button')];
+  const showFeatured = (index: number): void => {
+    const card = featuredCards[index];
+    if (!featuredRail || !card) return;
+    featuredRail.scrollTo({ left: card.offsetLeft, behavior: 'smooth' });
+  };
+  featuredRail?.addEventListener('scroll', () => {
+    const active = Math.round(featuredRail.scrollLeft / Math.max(featuredRail.clientWidth, 1));
+    featuredDots.forEach((dot, index) => dot.classList.toggle('is-active', index === active));
+  }, { passive: true });
+  featuredDots.forEach((dot, index) => dot.addEventListener('click', () => showFeatured(index)));
+  document.querySelectorAll<HTMLButtonElement>('[data-ops-feature-move]').forEach((button) => button.addEventListener('click', () => {
+    if (!featuredRail) return;
+    const active = Math.round(featuredRail.scrollLeft / Math.max(featuredRail.clientWidth, 1));
+    const next = Math.max(0, Math.min(featuredCards.length - 1, active + Number(button.dataset.opsFeatureMove)));
+    showFeatured(next);
+  }));
 
   const reveal = document.querySelectorAll<HTMLElement>('.reveal');
   if (revealsDone) {

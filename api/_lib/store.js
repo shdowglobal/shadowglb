@@ -4,8 +4,9 @@ const { HttpError } = require('./http');
 
 const PRODUCT_PUBLIC_FIELDS = [
   'id', 'slug', 'name', 'title', 'category', 'price', 'origPrice', 'currency',
-  'desc', 'description', 'tags', 'includes', 'badge', 'ptype', 'type', 'kind',
-  'imageUrl', 'cover', 'images', 'media', 'sold', 'featured', 'page', 'section',
+  'subtitle', 'desc', 'description', 'tags', 'includes', 'badge', 'ptype', 'type', 'kind',
+  'ctaText', 'deliveryNoteTitle', 'deliveryNoteText',
+  'imageUrl', 'cover', 'images', 'media', 'sold', 'visible', 'featured', 'featuredOrder', 'page', 'section',
 ];
 
 const PUBLIC_TOP_LEVEL_FIELDS = [
@@ -223,21 +224,46 @@ function deliveryAssetForProduct(product) {
   return { path, fileName, bucket, contentType, size, sha256 };
 }
 
-function secureAssetDeliveryItem(product, options = {}) {
-  const asset = deliveryAssetForProduct(product);
+function deliveryAssetsForProduct(product) {
+  if (!product || !isPlainObject(product)) return [];
+  const raw = Array.isArray(product.deliveryAssets) ? product.deliveryAssets : [];
+  const candidates = [...raw];
+  if (product.deliveryAsset !== undefined && product.deliveryAsset !== null) candidates.unshift(product.deliveryAsset);
+  const assets = [];
+  const seen = new Set();
+  for (const value of candidates.slice(0, 11)) {
+    const asset = deliveryAssetForProduct({ deliveryAsset: value });
+    if (!asset) continue;
+    const key = `${asset.bucket || ''}/${asset.path}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    assets.push(asset);
+    if (assets.length === 10) break;
+  }
+  return assets;
+}
+
+function secureAssetDeliveryItems(product, options = {}) {
+  const assets = deliveryAssetsForProduct(product);
   const siteUrl = safePublicUrl(options.siteUrl, { allowHttp: process.env.NODE_ENV !== 'production', maxLength: 1000 });
-  if (!asset || !siteUrl) return null;
+  if (!assets.length || !siteUrl) return [];
   let productId;
-  try { productId = validateProductId(product.id); } catch (_error) { return null; }
-  const url = new URL('/api/checkout-session', siteUrl);
-  url.searchParams.set('delivery', '1');
-  url.searchParams.set('product_id', productId);
-  if (typeof options.sessionId === 'string' && options.sessionId) url.searchParams.set('session_id', options.sessionId);
-  return {
-    label: cleanDeliveryLabel(product.deliveryLabel, 'Download your files'),
-    url: url.toString(),
-    type: 'download',
-  };
+  try { productId = validateProductId(product.id); } catch (_error) { return []; }
+  return assets.map((asset, index) => {
+    const url = new URL('/api/checkout-session', siteUrl);
+    url.searchParams.set('delivery', '1');
+    url.searchParams.set('product_id', productId);
+    if (assets.length > 1) url.searchParams.set('asset', String(index));
+    if (typeof options.sessionId === 'string' && options.sessionId) url.searchParams.set('session_id', options.sessionId);
+    return {
+      label: cleanDeliveryLabel(
+        index === 0 ? product.deliveryLabel : null,
+        assets.length === 1 ? 'Download your files' : `Download ${asset.fileName}`,
+      ),
+      url: url.toString(),
+      type: 'download',
+    };
+  });
 }
 
 function deliveryItem(value, fallbackType = 'access') {
@@ -271,7 +297,7 @@ function productDeliveryPackage(product, storeData, options = {}) {
     seen.add(item.url);
     items.push(item);
   };
-  add(secureAssetDeliveryItem(product, options));
+  for (const item of secureAssetDeliveryItems(product, options)) add(item);
   const type = deliveryType(product && product.deliveryType);
   const primaryValue = product && (product.deliveryLink || product.delivery_url || product.downloadUrl || product.accessUrl);
   const primaryUrl = safePublicUrl(primaryValue, { maxLength: 4000 });
@@ -299,7 +325,7 @@ function productDeliveryPackage(product, storeData, options = {}) {
 }
 
 function hasProductDelivery(product) {
-  return Boolean(deliveryAssetForProduct(product) || productDeliveryPackage(product).url);
+  return Boolean(deliveryAssetsForProduct(product).length || productDeliveryPackage(product).url);
 }
 
 function productDeliveryUrl(product, storeData, options) {
@@ -390,6 +416,22 @@ if (product.deliveryMessage !== undefined && (typeof product.deliveryMessage !==
 if (product.deliveryAsset !== undefined && product.deliveryAsset !== null && !deliveryAssetForProduct(product)) {
   throw new HttpError(400, 'The secure delivery ZIP metadata is invalid.', 'invalid_delivery_asset');
 }
+if (product.deliveryAssets !== undefined) {
+  if (!Array.isArray(product.deliveryAssets) || product.deliveryAssets.length > 10) {
+    throw new HttpError(400, 'Secure delivery supports at most 10 uploaded files.', 'invalid_delivery_assets');
+  }
+  for (const asset of product.deliveryAssets) {
+    if (!deliveryAssetForProduct({ deliveryAsset: asset })) {
+      throw new HttpError(400, 'One of the secure delivery files is invalid.', 'invalid_delivery_asset');
+    }
+  }
+}
+if (product.featuredOrder !== undefined && product.featuredOrder !== null && product.featuredOrder !== '') {
+  const order = Number(product.featuredOrder);
+  if (!Number.isSafeInteger(order) || order < 0 || order > 999) {
+    throw new HttpError(400, 'The featured position must be a whole number from 0 to 999.', 'invalid_featured_order');
+  }
+}
 
     }
   }
@@ -430,6 +472,7 @@ function mergeAdminStore(current, incoming) {
 module.exports = {
   assertSafeJson,
   deliveryAssetForProduct,
+  deliveryAssetsForProduct,
   findProduct,
   hasProductDelivery,
   isPlainObject,
