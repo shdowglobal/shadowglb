@@ -200,3 +200,22 @@ test('checkout and store validation reject ambiguous IDs, prices, emails, and du
   assert.throws(() => validateAdminStoreInput({ content: { privateTelegramUrl: 'https://example.com/not-private' } }), /private Telegram/i);
   assert.throws(() => validateAdminStoreInput({ products: [{ id: 'bad-delivery', name: 'Bad', price: '9.99', deliveryItems: [{ label: 'Broken', url: 'javascript:alert(1)' }] }] }), /delivery item/i);
 });
+
+test('active free products can be published and expose a safe claim action', () => {
+  const freeProduct = {
+    id: 'research-operator-lite',
+    name: 'SHADOW // RESEARCH OPERATOR LITE',
+    price: '0',
+    active: true,
+    deliveryLink: 'https://delivery.example/research-operator-lite.zip',
+  };
+
+  const validated = validateAdminStoreInput({ products: [freeProduct] });
+  assert.equal(validated.products[0].price, '0');
+
+  const publicStore = sanitizePublicStore({ products: [freeProduct] });
+  assert.equal(publicStore.products.length, 1);
+  assert.equal(publicStore.products[0].checkoutReady, true);
+  assert.equal(publicStore.products[0].deliveryLink, undefined);
+});
+

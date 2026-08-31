@@ -100,7 +100,7 @@ function sanitizeProduct(product) {
   }
   if (output.id === undefined || (!output.name && !output.title)) return null;
   try {
-    parsePriceToMinor(product.price);
+    parsePriceToMinor(product.price, { allowZero: true });
     output.checkoutReady = hasProductDelivery(product);
   } catch (_error) {
     output.checkoutReady = false;
@@ -367,7 +367,7 @@ function validateAdminStoreInput(value) {
 if (product.active === false) continue;
 
 productName(product);
-parsePriceToMinor(product.price);
+parsePriceToMinor(product.price, { allowZero: true });
 validateCurrency(product.currency || 'gbp');
 
 if (product.deliveryType !== undefined && !DELIVERY_TYPES.has(String(product.deliveryType).trim().toLowerCase())) {
@@ -450,3 +450,4 @@ module.exports = {
   validateEmail,
   validateProductId,
 };
+
