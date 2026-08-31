@@ -191,8 +191,9 @@ function formatMoney(value: string): string {
   return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: amount % 1 ? 2 : 0 }).format(amount);
 }
 
-function featuredProduct(store: HomeStore): Product | undefined {
+export function featuredProduct(store: HomeStore): Product | undefined {
   return store.products.find((product) => product.featured === true)
+    || store.products.find((product) => /^flagship$/i.test(String(product.badge || '').trim()))
     || store.products.find((product) => !/^(file|system|template)$/i.test(String(product.ptype || '')))
     || store.products[0];
 }
@@ -347,3 +348,4 @@ export function renderHomePage(): void {
     })
     .catch(() => { /* The cached or email fallback keeps the page usable offline. */ });
 }
+
