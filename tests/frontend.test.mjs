@@ -23,6 +23,14 @@ test('frontend route, product grouping, money, and Wall helpers', async () => {
   assert.equal(app.isSystemsProduct({ ptype: 'Template' }), true);
   assert.equal(app.isSystemsProduct({ ptype: 'Playbook' }), false);
   assert.equal(app.formatMoney('29.99'), '£29.99');
+  assert.deepEqual(
+    app.flagshipFirst([
+      { id: 1, name: 'Older product' },
+      { id: 2, name: 'Operator Stack', badge: 'FLAGSHIP' },
+      { id: 3, name: 'Newer product' },
+    ]).map((product) => product.id),
+    [2, 1, 3],
+  );
 
   assert.deepEqual(app.normalizeGallery(['https://example.com/a.jpg']), [{
     id: 'wall-1',
@@ -55,6 +63,18 @@ test('homepage contact actions accept configurable email, WhatsApp, and public T
   assert.match(admin, /Additional delivery options/);
   assert.match(admin, /Buyer delivery message/);
   assert.match(admin, /type="email"/);
+});
+
+test('homepage prioritizes the product marked as flagship', async () => {
+  const homepage = await import('../dist/assets/homepage.js');
+  const flagship = homepage.featuredProduct({
+    products: [
+      { id: 1, name: 'Older product', ptype: 'Playbook' },
+      { id: 2, name: 'Operator Stack', ptype: 'Bundle', badge: 'FLAGSHIP' },
+    ],
+  });
+
+  assert.equal(flagship.id, 2);
 });
 
 test('homepage showcase accepts simple title/link pairs and full media entries', async () => {

@@ -36,6 +36,14 @@ export function formatMoney(value: string | number): string {
   }).format(Number.isFinite(numeric) ? numeric : 0);
 }
 
+export function flagshipFirst(products: Product[]): Product[] {
+  return [...products].sort((left, right) => {
+    const leftFlagship = /^flagship$/i.test(String(left.badge || '').trim());
+    const rightFlagship = /^flagship$/i.test(String(right.badge || '').trim());
+    return Number(rightFlagship) - Number(leftFlagship);
+  });
+}
+
 export function normalizeGallery(value: unknown): WallItem[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item, index) => {
@@ -364,7 +372,7 @@ function renderHome(store: PublicStore): void {
   if (!app) return;
   const products = store.products.filter((product) => !isSystemsProduct(product) && !isFileProduct(product));
   const categories = [...new Set(products.map((product) => product.category).filter(Boolean))];
-  const featured = products.slice(0, 8);
+  const featured = flagshipFirst(products).slice(0, 8);
   const allLabel = store.content.allLabel || 'All';
   const content = `<section class="hero home-hero">
       <div class="hero-grid" aria-hidden="true"></div>
