@@ -133,3 +133,16 @@ test('homepage showcase accepts simple title/link pairs and full media entries',
   }]);
   assert.equal(homepage.parseShowcase(['https://example.com/orphan']).length, 0);
 });
+
+test('every catalogue keeps the shared product swipe rail', async () => {
+  const appSource = await readFile(new URL('../src/app.ts', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
+
+  assert.match(appSource, /product-grid is-swipe-rail/);
+  assert.match(appSource, /product-grid systems-grid is-swipe-rail/);
+  assert.match(appSource, /installRail\(grid, '\.product-card'\)/);
+  assert.match(appSource, /dossier-rail/);
+  assert.match(styles, /\.product-grid\.is-swipe-rail\s*\{/);
+  assert.match(styles, /scroll-snap-type:\s*x mandatory/);
+  assert.match(styles, /-webkit-overflow-scrolling:\s*touch/);
+});
