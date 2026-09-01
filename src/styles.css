@@ -3850,6 +3850,61 @@ body.has-announce .filter-section {
   border-top: 1px solid var(--line);
 }
 
+.catalogue-rail-status {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.catalogue-rail-status > p {
+  color: var(--dim);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.catalogue-rail-status > p b {
+  color: var(--green);
+}
+
+.product-grid.is-swipe-rail {
+  display: grid;
+  grid-template-columns: none;
+  grid-auto-columns: minmax(220px, calc((100% - 42px) / 4));
+  grid-auto-flow: column;
+  gap: 14px;
+  padding: 4px 0 16px;
+  overflow-x: auto;
+  cursor: grab;
+  overscroll-behavior-inline: contain;
+  scroll-behavior: smooth;
+  scroll-padding-inline: 1px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.product-grid.is-swipe-rail:active {
+  cursor: grabbing;
+}
+
+.product-grid.is-swipe-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.product-grid.is-swipe-rail > .product-card {
+  scroll-snap-align: start;
+}
+
+.product-grid.is-swipe-rail > .product-card.is-active {
+  border-color: var(--line-strong);
+}
+
+.product-grid.is-swipe-rail > .empty-state {
+  width: min(100%, 720px);
+}
+
 .product-card-media {
   position: relative;
   aspect-ratio: 1;
@@ -5531,6 +5586,11 @@ body.has-announce .product-copy {
 }
 
 @media (max-width: 900px) {
+  .product-grid.is-swipe-rail {
+    grid-template-columns: none;
+    grid-auto-columns: minmax(220px, calc((100% - 28px) / 3));
+  }
+
   .product-layout {
     grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr);
     gap: 28px;
@@ -5591,6 +5651,19 @@ body.has-announce .product-copy {
     text-align: left;
   }
 
+  .catalogue-rail-status {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .product-grid.is-swipe-rail {
+    grid-template-columns: none;
+    grid-auto-columns: min(74vw, 300px);
+    margin-inline: calc(var(--gutter) * -1);
+    padding-inline: var(--gutter);
+    scroll-padding-inline: var(--gutter);
+  }
+
   .product-layout {
     display: block;
     padding-top: 16px;
@@ -5626,6 +5699,10 @@ body.has-announce .product-copy {
 
   .feature-rail {
     grid-auto-columns: min(82vw, 340px);
+  }
+
+  .product-grid.is-swipe-rail {
+    grid-auto-columns: min(78vw, 290px);
   }
 
   .product-card-body {
@@ -5694,6 +5771,11 @@ body.has-announce .product-copy {
 }
 
 @media (max-width: 365px) {
+  .product-grid.is-swipe-rail {
+    grid-template-columns: none;
+    grid-auto-columns: min(84vw, 280px);
+  }
+
   .product-card-media {
     aspect-ratio: 4 / 3;
   }

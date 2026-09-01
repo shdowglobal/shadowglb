@@ -309,6 +309,14 @@ function trustStrip(items: string[]): string {
   return `<div class="trust-strip" aria-label="Store benefits"><div>${repeated.map((item) => `<span><i>◆</i>${escapeHtml(item)}</span>`).join('')}</div></div>`;
 }
 
+function productRailDots(products: Product[]): string {
+  return products.map((product, index) => `<button type="button" class="${index === 0 ? 'is-active' : ''}" aria-label="Show ${escapeHtml(product.name)}"${index === 0 ? ' aria-current="true"' : ''}></button>`).join('');
+}
+
+function productRailStatus(count: number, noun: string): string {
+  return `<div class="catalogue-rail-status"><p><b data-product-count>${count}</b> ${escapeHtml(noun)}</p><div class="rail-controls"><button type="button" data-rail-move="-1" aria-label="Previous product">←</button><button type="button" data-rail-move="1" aria-label="Next product">→</button></div></div>`;
+}
+
 function installReveals(): void {
   const nodes = document.querySelectorAll<HTMLElement>('.reveal');
   if (!('IntersectionObserver' in window)) {
@@ -328,14 +336,22 @@ function installReveals(): void {
 
 function installRail(rail: HTMLElement, cardSelector = '.feature-card'): void {
   const scope = rail.closest<HTMLElement>('section') || document.body;
-  const cards = Array.from(rail.querySelectorAll<HTMLElement>(cardSelector));
-  const dots = scope.querySelector<HTMLElement>('.rail-dots');
+  const getCards = (): HTMLElement[] => Array.from(rail.querySelectorAll<HTMLElement>(cardSelector));
+  const getDots = (): HTMLElement | null => scope.querySelector<HTMLElement>('.rail-dots');
   let down = false;
   let moved = false;
   let startX = 0;
   let startScroll = 0;
   const update = (): void => {
-    if (!cards.length) return;
+    const cards = getCards();
+    scope.querySelectorAll<HTMLButtonElement>('[data-rail-move]').forEach((button) => { button.disabled = cards.length <= 1; });
+    if (!cards.length) {
+      getDots()?.querySelectorAll('button').forEach((dot) => {
+        dot.classList.remove('is-active');
+        dot.removeAttribute('aria-current');
+      });
+      return;
+    }
     const center = rail.scrollLeft + rail.clientWidth / 2;
     let active = 0;
     let distance = Number.POSITIVE_INFINITY;
@@ -345,11 +361,21 @@ function installRail(rail: HTMLElement, cardSelector = '.feature-card'): void {
         active = index;
         distance = Math.abs(cardCenter - center);
       }
-      card.classList.toggle('is-active', index === active);
     });
-    dots?.querySelectorAll('button').forEach((dot, index) => dot.classList.toggle('is-active', index === active));
+    cards.forEach((card, index) => card.classList.toggle('is-active', index === active));
+    getDots()?.querySelectorAll('button').forEach((dot, index) => {
+      dot.classList.toggle('is-active', index === active);
+      if (index === active) dot.setAttribute('aria-current', 'true');
+      else dot.removeAttribute('aria-current');
+    });
   };
+  if (rail.dataset.railInstalled === 'true') {
+    rail.dispatchEvent(new Event('shadowglb:rail-refresh'));
+    return;
+  }
+  rail.dataset.railInstalled = 'true';
   rail.addEventListener('scroll', update, { passive: true });
+  rail.addEventListener('shadowglb:rail-refresh', update);
   rail.addEventListener('pointerdown', (event) => {
     down = true; moved = false; startX = event.clientX; startScroll = rail.scrollLeft;
     rail.setPointerCapture(event.pointerId);
@@ -367,7 +393,12 @@ function installRail(rail: HTMLElement, cardSelector = '.feature-card'): void {
   scope.querySelectorAll<HTMLButtonElement>('[data-rail-move]').forEach((button) => button.addEventListener('click', () => {
     rail.scrollBy({ left: Number(button.dataset.railMove) * rail.clientWidth * 0.78, behavior: 'smooth' });
   }));
-  dots?.querySelectorAll<HTMLButtonElement>('button').forEach((dot, index) => dot.addEventListener('click', () => cards[index]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })));
+  getDots()?.addEventListener('click', (event) => {
+    const button = (event.target as Element | null)?.closest<HTMLButtonElement>('button');
+    if (!button) return;
+    const buttons = Array.from(getDots()?.querySelectorAll<HTMLButtonElement>('button') || []);
+    getCards()[buttons.indexOf(button)]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  });
   requestAnimationFrame(update);
 }
 
@@ -375,6 +406,10 @@ function renderCollectionGrid(products: Product[], target: HTMLElement): void {
   target.innerHTML = products.length
     ? products.map((product, index) => productCard(product, index)).join('')
     : emptyState('New drops will appear as soon as they are published.');
+  const dots = target.closest('section')?.querySelector<HTMLElement>('[data-product-dots]');
+  if (dots) dots.innerHTML = productRailDots(products);
+  target.scrollTo({ left: 0, behavior: 'auto' });
+  installRail(target, '.product-card');
   installReveals();
 }
 
@@ -391,7 +426,7 @@ function renderHome(store: PublicStore): void {
     </section>
     <section class="filter-section" aria-label="Product filters"><div class="filter-chips"><button class="chip is-active" type="button" data-category="">${escapeHtml(allLabel)}</button>${categories.map((category) => `<button class="chip" type="button" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`).join('')}</div></section>
     ${featured.length ? `<section class="featured-section section-wrap"><div class="section-heading"><div><span>Featured drop</span><h2>Built for action.</h2></div><div class="rail-controls"><button type="button" data-rail-move="-1" aria-label="Previous featured product">←</button><button type="button" data-rail-move="1" aria-label="Next featured product">→</button></div></div><div class="feature-rail">${featured.map((product, index) => `<a class="feature-card${index === 0 ? ' is-active' : ''}" href="${productPath(product)}"><div>${mediaFor(product)[0]?.url ? `<img src="${escapeHtml(mediaFor(product)[0]?.url)}" alt="${escapeHtml(product.name)}">` : `<span class="feature-placeholder">${escapeHtml(product.name.slice(0, 2).toUpperCase())}</span>`}</div><small>${escapeHtml(product.category)}</small><h3>${escapeHtml(product.name)}</h3><strong>${formatMoney(product.price)}</strong></a>`).join('')}</div><div class="rail-dots" aria-label="Choose featured product">${featured.map((product, index) => `<button type="button" class="${index === 0 ? 'is-active' : ''}" aria-label="Show ${escapeHtml(product.name)}"></button>`).join('')}</div></section>` : ''}
-    <section class="catalogue section-wrap"><div class="section-heading"><div><span>The store</span><h2>Operator vault.</h2></div><p><b data-product-count>${products.length}</b> live resources</p></div><div class="product-grid" data-product-grid>${products.length ? products.map((product, index) => productCard(product, index)).join('') : emptyState('The next release is being prepared.')}</div></section>
+    <section class="catalogue section-wrap"><div class="section-heading"><div><span>The store</span><h2>Operator vault.</h2></div>${productRailStatus(products.length, 'live resources')}</div><div class="product-grid is-swipe-rail" data-product-grid>${products.length ? products.map((product, index) => productCard(product, index)).join('') : emptyState('The next release is being prepared.')}</div><div class="rail-dots" data-product-dots aria-label="Choose an Operator Kit">${productRailDots(products)}</div></section>
     ${trustStrip(store.content.strip || [])}`;
   app.innerHTML = chrome('home', content, store);
   bindChrome();
@@ -405,6 +440,7 @@ function renderHome(store: PublicStore): void {
   }));
   const rail = document.querySelector<HTMLElement>('.feature-rail');
   if (rail) installRail(rail);
+  if (grid) installRail(grid, '.product-card');
   installReveals();
   setMeta('ShadowGLB — The Store', store.content.sub || 'Digital systems, playbooks and operator resources.');
 }
@@ -415,7 +451,7 @@ function renderSystems(store: PublicStore): void {
   const categories = [...new Set(products.map((product) => product.category).filter(Boolean))];
   const content = `<section class="route-intro compact-intro"><h1 class="sr-only">Systems &amp; Templates</h1><span class="eyebrow">Systems &amp; Templates // Operator builds</span><p>${escapeHtml(store.content.systemsSub || 'Working builds and ready-to-run templates. Plug them into the operation and move.')}</p></section>
     <section class="filter-section route-filters" aria-label="Systems filters"><div class="filter-chips"><button class="chip is-active" type="button" data-category="">All builds</button>${categories.map((category) => `<button class="chip" type="button" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`).join('')}</div></section>
-    <section class="catalogue section-wrap route-catalogue"><div class="section-heading"><div><span>Deployable assets</span><h2 class="sr-only">Available systems and templates</h2></div><p><b data-product-count>${products.length}</b> live builds</p></div><div class="product-grid systems-grid" data-product-grid>${products.length ? products.map((product, index) => productCard(product, index)).join('') : emptyState('Systems and templates will appear here when published.')}</div></section>
+    <section class="catalogue section-wrap route-catalogue"><div class="section-heading"><div><span>Deployable assets</span><h2 class="sr-only">Available systems and templates</h2></div>${productRailStatus(products.length, 'live builds')}</div><div class="product-grid systems-grid is-swipe-rail" data-product-grid>${products.length ? products.map((product, index) => productCard(product, index)).join('') : emptyState('Systems and templates will appear here when published.')}</div><div class="rail-dots" data-product-dots aria-label="Choose a system or template">${productRailDots(products)}</div></section>
     ${trustStrip(store.content.strip || [])}`;
   app.innerHTML = chrome('systems', content, store);
   bindChrome();
@@ -427,6 +463,7 @@ function renderSystems(store: PublicStore): void {
     const count = document.querySelector<HTMLElement>('[data-product-count]');
     if (count) count.textContent = String(filtered.length);
   }));
+  if (grid) installRail(grid, '.product-card');
   installReveals();
   setMeta('Systems & Templates — ShadowGLB', 'Ready-to-run digital systems and operator templates from ShadowGLB.');
 }
