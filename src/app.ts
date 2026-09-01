@@ -361,8 +361,8 @@ function installRail(rail: HTMLElement, cardSelector = '.feature-card'): void {
         active = index;
         distance = Math.abs(cardCenter - center);
       }
-      card.classList.toggle('is-active', index === active);
     });
+    cards.forEach((card, index) => card.classList.toggle('is-active', index === active));
     getDots()?.querySelectorAll('button').forEach((dot, index) => {
       dot.classList.toggle('is-active', index === active);
       if (index === active) dot.setAttribute('aria-current', 'true');
